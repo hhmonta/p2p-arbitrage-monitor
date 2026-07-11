@@ -1,106 +1,122 @@
 # P2P Arbitrage Monitor
 
-Aplicación Flutter para monitoreo de precios P2P y detección de oportunidades de arbitraje entre Binance, Bybit y BingX.
+Monitor de precios P2P USDT y detector de arbitraje entre Binance, Bybit y BingX.
 
 ## Características
 
-- 📊 **Panel de Precios en Tiempo Real**: Precios de compra/venta USDT en cada exchange con filtro por moneda fiat (VES, ARS, COP, MXN, etc.)
-- 🔄 **Detector de Arbitraje**: Cálculo automático de spreads entre exchanges con ganancia potencial y ruta de arbitraje
-- 📈 **Historial de Precios**: Gráficos comparativos de los 3 exchanges con exportación CSV
-- 🔔 **Notificaciones**: Alertas configurables cuando el spread supera un umbral
-- 🌙 **Tema Oscuro/Claro**: Interfaz con soporte para ambos temas
+- **Panel de Precios en Tiempo Real**: Precios de compra/venta USDT en Binance, Bybit y BingX
+- **Filtros de Moneda Fiat**: VES, ARS, COP, MXN, BRL, CLP, PEN, USD
+- **Detector de Arbitraje**: Calcula spreads entre exchanges y estima ganancia neta
+- **Historial de Precios**: Gráficos de línea con datos históricos (24h, 3d, 7d, 30d)
+- **Exportar CSV**: Exporta datos históricos a formato CSV
+- **Notificaciones Push**: Alertas configurables para oportunidades de arbitraje
+- **Tema Oscuro/Claro**: Interfaz con soporte para tema oscuro y claro
+- **Auto-actualización**: Actualización automática cada 10-60 segundos
+- **Optimización de Batería**: Pausa actualizaciones cuando la app está en segundo plano
 
 ## Capturas de Pantalla
 
 | Precios | Arbitraje | Historial |
 |---------|-----------|-----------|
-| Panel de precios en tiempo real con filtro fiat | Detección de oportunidades con spread % | Gráficos comparativos entre exchanges |
+| *Panel de precios* | *Oportunidades* | *Gráficos* |
+
+## Requisitos Técnicos
+
+- Flutter 3.22+
+- Dart 3.0+
+- Android SDK 21+ (Android 5.0 Lollipop)
+- iOS 12+ (si se compila para iOS)
 
 ## Instalación
 
-### Prerrequisitos
-- Flutter SDK 3.44+ 
-- Android SDK (compileSdk 36, minSdk 24)
-- Android NDK 28.2.13676358
-- JDK 17
-
-### Compilar
+### Desde Código Fuente
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/<username>/p2p-arbitrage-monitor.git
+git clone https://github.com/hhmonta/p2p-arbitrage-monitor.git
 cd p2p-arbitrage-monitor
 
 # Instalar dependencias
 flutter pub get
 
-# Compilar APK de release
-flutter build apk --release
+# Ejecutar en modo debug
+flutter run
 
-# El APK se encuentra en:
-# build/app/outputs/flutter-apk/app-release.apk
+# Construir APK de producción
+flutter build apk --release
 ```
 
-### Compilar con Android Studio
-1. Abrir el proyecto en Android Studio
-2. Sincronizar Gradle
-3. Seleccionar dispositivo/emulador
-4. Ejecutar `flutter run`
+### Descargar APK
+
+Descarga el APK más reciente desde [GitHub Releases](https://github.com/hhmonta/p2p-arbitrage-monitor/releases) o desde los artifacts de GitHub Actions.
+
+## APIs Utilizadas
+
+| Exchange | Endpoint | Método | Notas |
+|----------|----------|--------|-------|
+| **Binance** | `p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search` | POST | API interna del frontend web |
+| **Bybit** | `api2.bybit.com/fiat/otc/item/online` | POST | API interna del frontend web |
+| **BingX** | `api-app.qq-os.com/api/c2c/v3/advert/list` | POST | Requiere headers firmados; puede no funcionar sin autenticación |
+
+## ⚠️ Limitaciones de API
+
+- Los endpoints P2P son **APIs internas** usadas por los frontends web de los exchanges
+- Pueden cambiar sin aviso previo
+- Tienen rate limits que varían por exchange
+- **BingX** requiere un header `sign` generado con HMAC-SHA256; puede no funcionar sin él
+- Las restricciones CORS impiden acceso directo desde navegador; se requiere un proxy server o acceso desde app móvil
+- La precisión de datos depende de la disponibilidad y tiempo de respuesta de cada API
+
+## ⚠️ Aviso de Riesgo
+
+Las oportunidades de arbitraje mostradas son **estimaciones**. Los costos de transferencia, tiempos de movimiento de fondos, comisiones de retiro, fluctuaciones de precio durante la transferencia, y liquidez disponible pueden afectar significativamente la rentabilidad real. Esta app es **solo para fines informativos** y no constituye asesoramiento financiero. Opera bajo tu propio riesgo.
 
 ## Estructura del Proyecto
 
 ```
 lib/
-├── main.dart                 # Punto de entrada de la aplicación
+├── main.dart              # Entry point
+├── app.dart               # App widget with theme toggle
 ├── models/
-│   └── p2p_models.dart       # Modelos de datos (P2PListing, ArbitrageOpportunity, etc.)
+│   ├── p2p_ad.dart        # P2P advertisement model
+│   ├── arbitrage_opportunity.dart  # Arbitrage opportunity model
+│   ├── price_record.dart  # Historical price record
+│   └── notification_config.dart    # Notification settings
 ├── services/
-│   └── p2p_api_service.dart  # Servicios API de Binance, Bybit, BingX
-├── providers/
-│   └── p2p_provider.dart     # State management con Provider
-├── db/
-│   └── database_service.dart # Almacenamiento local con SharedPreferences
+│   ├── api_service.dart   # Main API orchestrator
+│   ├── binance_service.dart  # Binance P2P API
+│   ├── bybit_service.dart    # Bybit P2P API
+│   ├── bingx_service.dart    # BingX P2P API
+│   ├── arbitrage_service.dart # Arbitrage calculations
+│   ├── database_service.dart  # SQLite storage
+│   └── notification_service.dart # Local notifications
 ├── screens/
-│   ├── home_screen.dart      # Pantalla principal con tabs
-│   ├── prices_screen.dart    # Panel de precios en tiempo real
-│   ├── arbitrage_screen.dart # Detector de arbitraje
-│   ├── history_screen.dart   # Historial con gráficos
-│   └── settings_screen.dart  # Configuración y ajustes
+│   ├── home_screen.dart   # Main screen with tabs
+│   ├── prices_screen.dart # Real-time price panel
+│   ├── arbitrage_screen.dart # Arbitrage detector
+│   ├── history_screen.dart  # Price history & charts
+│   └── settings_screen.dart # App configuration
+├── widgets/
+│   ├── price_card.dart    # P2P ad display card
+│   ├── arbitrage_card.dart # Arbitrage opportunity card
+│   ├── skeleton_loader.dart # Loading animation
+│   ├── fiat_filter_chip.dart # Currency filter chip
+│   └── price_chart.dart   # Historical price chart
+├── theme/
+│   └── app_theme.dart     # Dark/light theme definitions
 └── utils/
-    └── theme_provider.dart   # Gestión de tema oscuro/claro
+    ├── constants.dart     # App constants
+    └── formatters.dart    # Formatting utilities
 ```
 
-## APIs Utilizadas
+## Configuración de Notificaciones
 
-| Exchange | Endpoint | Método |
-|----------|----------|--------|
-| Binance P2P | `https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search` | POST |
-| Bybit P2P | `https://api2.bybit.com/fiat/otc/item/online` | POST |
-| BingX P2P | `https://open-api.bingx.com/api/v1/p2p/adv/search` | POST |
-
-### Limitaciones de las APIs
-
-- **CORS**: Las APIs P2P no tienen habilitado CORS, por lo que no funcionan desde navegador web
-- **Rate Limiting**: Se recomienda un intervalo mínimo de 15 segundos entre consultas
-- **Autenticación**: Las consultas de listados P2P no requieren autenticación
-- **BingX**: El endpoint puede variar; se recomienda verificar la documentación actualizada
-
-## Monedas Fiat Soportadas
-
-VES, ARS, COP, MXN, BRL, CLP, PEN, UYU, CNY, INR, NGN, PKR, RUB, TRY, VND, IDR, THB, PHP, KRW, JPY, EUR, GBP, USD
-
-## ⚠️ Descargo de Responsabilidad
-
-Esta aplicación es una **HERRAMIENTA INFORMATIVA** y no constituye asesoría financiera. El arbitraje P2P conlleva riesgos significativos:
-
-- **Riesgo de contraparte**: El vendedor puede no completar la transacción
-- **Riesgo de precio**: Los precios fluctúan entre el momento de compra y venta
-- **Riesgo regulatorio**: Las operaciones P2P pueden estar sujetas a regulaciones locales
-- **Riesgo de liquidez**: Los montos disponibles pueden no ser suficientes
-- **Costos ocultos**: Comisiones de transferencia bancaria, spread cambiario, impuestos
-
-Las ganancias mostradas son **TEÓRICAS** y no garantizadas. Opere bajo su propia responsabilidad.
+1. Ir a **Ajustes** → **Notificaciones**
+2. Activar **Alertas de arbitraje**
+3. Configurar el **Umbral de spread mínimo** (por defecto 1%)
+4. Seleccionar las **Monedas para notificar**
+5. Ajustar el **Enfriamiento entre notificaciones** (mínimo 5 minutos)
 
 ## Licencia
 
-MIT License
+MIT License - Ver [LICENSE](LICENSE) para más detalles.

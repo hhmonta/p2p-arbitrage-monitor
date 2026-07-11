@@ -1,189 +1,192 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/p2p_provider.dart';
-import '../services/p2p_api_service.dart';
-import '../db/database_service.dart';
+import '../services/api_service.dart';
+import '../utils/constants.dart';
 import 'prices_screen.dart';
 import 'arbitrage_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 
+/// Main home screen with bottom navigation tabs
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool isDarkMode;
+  final VoidCallback onToggleTheme;
+
+  const HomeScreen({
+    super.key,
+    required this.isDarkMode,
+    required this.onToggleTheme,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  late P2PProvider _provider;
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  int _currentIndex = 0;
+  Timer? _refreshTimer;
+  bool _autoRefresh = true;
+
+  final List<Widget> _screens = [
+    const PricesScreen(),
+    const ArbitrageScreen(),
+    const HistoryScreen(),
+    const SettingsScreen(),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    
-    _provider = P2PProvider(
-      serviceManager: P2PServiceManager.defaultServices(),
-      dbService: DatabaseService(),
-    );
-
-    // Initial fetch
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _provider.refreshPrices();
-      _provider.startAutoRefresh();
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _initApp();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _provider.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  /// Initialize app - load preferences and start first fetch
+  Future<void> _initApp() async {
+    final apiService = context.read<ApiService>();
+    await apiService.loadPreferences();
+    await apiService.fetchAllPrices();
+    _startAutoRefresh();
+  }
+
+  /// Start auto-refresh timer
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    if (!_autoRefresh) return;
+
+    final apiService = context.read<ApiService>();
+    _refreshTimer = Timer.periodic(
+      Duration(seconds: apiService.refreshInterval),
+      (_) => apiService.fetchAllPrices(),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh when app comes back to foreground
+      context.read<ApiService>().fetchAllPrices();
+      _startAutoRefresh();
+    } else if (state == AppLifecycleState.paused) {
+      // Pause refresh when app is in background (battery optimization)
+      _refreshTimer?.cancel();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: _provider,
-      child: Scaffold(
-        body: Column(
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Custom app bar with gradient
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Theme.of(context).colorScheme.primary,
-                    Theme.of(context).colorScheme.primaryContainer,
-                  ],
-                ),
-              ),
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    // Title row
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.swap_horiz,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'P2P Arbitrage Monitor',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  'Binance · Bybit · BingX',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Consumer<P2PProvider>(
-                            builder: (context, provider, _) {
-                              return IconButton(
-                                onPressed: provider.isLoading
-                                    ? null
-                                    : provider.refreshPrices,
-                                icon: provider.isLoading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.refresh,
-                                        color: Colors.white,
-                                      ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Tab bar
-                    TabBar(
-                      controller: _tabController,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white60,
-                      indicatorColor: Colors.white,
-                      indicatorWeight: 3,
-                      indicatorSize: TabBarIndicatorSize.label,
-                      labelStyle: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      unselectedLabelStyle: const TextStyle(
-                        fontWeight: FontWeight.normal,
-                        fontSize: 12,
-                      ),
-                      tabs: const [
-                        Tab(
-                          icon: Icon(Icons.attach_money, size: 20),
-                          text: 'Precios',
-                        ),
-                        Tab(
-                          icon: Icon(Icons.trending_up, size: 20),
-                          text: 'Arbitraje',
-                        ),
-                        Tab(
-                          icon: Icon(Icons.show_chart, size: 20),
-                          text: 'Historial',
-                        ),
-                        Tab(
-                          icon: Icon(Icons.settings, size: 20),
-                          text: 'Ajustes',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+            Icon(
+              Icons.show_chart,
+              color: Theme.of(context).colorScheme.primary,
             ),
-            // Tab content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: const [
-                  PricesScreen(),
-                  ArbitrageScreen(),
-                  HistoryScreen(),
-                  SettingsScreen(),
-                ],
-              ),
-            ),
+            const SizedBox(width: 8),
+            const Text('P2P Monitor'),
           ],
         ),
+        actions: [
+          // Connection status indicator
+          Consumer<ApiService>(
+            builder: (context, api, _) {
+              if (api.isLoading) {
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              }
+              if (api.error != null) {
+                return IconButton(
+                  icon: const Icon(Icons.error_outline, color: Colors.redAccent),
+                  tooltip: api.error,
+                  onPressed: () => _showErrorDialog(context, api.error!),
+                );
+              }
+              return IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh prices',
+                onPressed: () => api.fetchAllPrices(),
+              );
+            },
+          ),
+          // Theme toggle
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            tooltip: 'Toggle theme',
+            onPressed: widget.onToggleTheme,
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.attach_money),
+            selectedIcon: Icon(Icons.attach_money),
+            label: 'Precios',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.swap_horiz),
+            selectedIcon: Icon(Icons.swap_horiz),
+            label: 'Arbitraje',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.timeline),
+            selectedIcon: Icon(Icons.timeline),
+            label: 'Historial',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Ajustes',
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(BuildContext context, String error) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Error de Conexión'),
+        content: Text(error),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<ApiService>().fetchAllPrices();
+            },
+            child: const Text('Reintentar'),
+          ),
+        ],
       ),
     );
   }
