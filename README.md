@@ -117,6 +117,28 @@ lib/
 4. Seleccionar las **Monedas para notificar**
 5. Ajustar el **Enfriamiento entre notificaciones** (mínimo 5 minutos)
 
+## CI/CD - Build Automático
+
+El proyecto incluye un workflow de GitHub Actions para construir automáticamente el APK. Para activarlo:
+
+1. Crea el archivo `.github/workflows/build.yml` en tu repositorio (el archivo está incluido en este proyecto)
+2. El workflow se ejecutará automáticamente en cada push a `main`
+3. Los APKs estarán disponibles en la sección **Actions → Artifacts**
+4. Para crear releases con tags: `git tag v1.0.0 && git push origin v1.0.0`
+
+### Build Manual
+
+```bash
+# Asegúrate de tener Flutter instalado
+flutter doctor
+
+# Construir APK release
+flutter build apk --release
+
+# El APK estará en:
+# build/app/outputs/flutter-apk/app-release.apk
+```
+
 ## Licencia
 
 MIT License - Ver [LICENSE](LICENSE) para más detalles.
