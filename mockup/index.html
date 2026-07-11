@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P2P Arbitrage Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ CSS RESET & BASE ============ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 12px 0;
+  overflow-y: auto;
+}
+
+/* ============ PHONE FRAME ============ */
+.phone-frame {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh;
+  background: #0D1117;
+  border-radius: 32px;
+  border: 3px solid #30363D;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 60px rgba(108, 99, 255, 0.1), 0 0 0 1px rgba(108, 99, 255, 0.05);
+}
+
+@media (min-width: 500px) {
+  body { align-items: center; padding: 20px; }
+  .phone-frame { min-height: 860px; max-height: 92vh; }
+}
+
+/* ============ STATUS BAR ============ */
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 20px 4px;
+  background: #0D1117;
+  color: #E6EDF3;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.status-bar-left { display: flex; align-items: center; gap: 6px; }
+.status-bar-right { display: flex; align-items: center; gap: 8px; }
+.status-bar .battery { width: 18px; height: 10px; border: 1.5px solid #8B949E; border-radius: 2px; position: relative; }
+.status-bar .battery::after { content: ''; position: absolute; right: -4px; top: 2px; width: 2px; height: 4px; background: #8B949E; border-radius: 0 1px 1px 0; }
+.status-bar .battery-fill { width: 70%; height: 100%; background: #00E676; border-radius: 1px; }
+
+/* ============ TOP HEADER ============ */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px 10px;
+  background: #0D1117;
+  border-bottom: 1px solid #30363D;
+  flex-shrink: 0;
+}
+.app-header-left { display: flex; align-items: center; gap: 10px; }
+.app-logo {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: linear-gradient(135deg, #6C63FF, #4B45B2);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px; color: #fff;
+}
+.app-title { font-size: 17px; font-weight: 700; color: #E6EDF3; letter-spacing: -0.3px; }
+.app-subtitle { font-size: 10px; color: #8B949E; font-weight: 400; }
+.app-header-right { display: flex; align-items: center; gap: 6px; }
+.header-btn {
+  width: 34px; height: 34px; border-radius: 10px; border: none;
+  background: #161B22; color: #8B949E; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  font-size: 16px;
+}
+.header-btn:hover { background: #1C2333; color: #E6EDF3; }
+.header-btn.spinning svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.refresh-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #00E676;
+  position: absolute; top: 2px; right: 2px;
+}
+.theme-btn { position: relative; }
+
+/* ============ CONTENT AREA ============ */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #0D1117;
+  position: relative;
+}
+.tab-content { display: none; padding: 12px 16px 16px; animation: fadeIn 0.25s ease; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Custom scrollbar */
+.content-area::-webkit-scrollbar { width: 3px; }
+.content-area::-webkit-scrollbar-track { background: transparent; }
+.content-area::-webkit-scrollbar-thumb { background: #30363D; border-radius: 3px; }
+
+/* ============ BOTTOM NAVIGATION ============ */
+.bottom-nav {
+  display: flex;
+  background: #161B22;
+  border-top: 1px solid #30363D;
+  padding: 4px 0 8px;
+  flex-shrink: 0;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 6px 0 2px; cursor: pointer; transition: all 0.2s;
+  background: none; border: none; font-family: inherit;
+}
+.nav-item svg { width: 22px; height: 22px; color: #8B949E; transition: color 0.2s; margin-bottom: 2px; }
+.nav-item span { font-size: 10px; color: #8B949E; font-weight: 500; transition: color 0.2s; }
+.nav-item.active svg { color: #6C63FF; }
+.nav-item.active span { color: #6C63FF; font-weight: 600; }
+.nav-item.active .nav-indicator {
+  width: 20px; height: 3px; border-radius: 3px; background: #6C63FF;
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+}
+.nav-item { position: relative; }
+
+/* ============ FIAT FILTER CHIPS ============ */
+.fiat-scroll {
+  display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 10px;
+  -ms-overflow-style: none; scrollbar-width: none;
+}
+.fiat-scroll::-webkit-scrollbar { display: none; }
+.fiat-chip {
+  flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
+  background: #161B22; border: 1.5px solid #30363D;
+  color: #8B949E; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  display: flex; align-items: center; gap: 4px;
+}
+.fiat-chip:hover { border-color: #6C63FF; color: #E6EDF3; }
+.fiat-chip.active {
+  background: rgba(108, 99, 255, 0.15); border-color: #6C63FF;
+  color: #6C63FF; font-weight: 600;
+}
+.fiat-chip .flag { font-size: 14px; }
+
+/* ============ BUY/SELL TOGGLE ============ */
+.toggle-container {
+  display: flex; background: #161B22; border-radius: 12px;
+  padding: 3px; margin-bottom: 14px; border: 1px solid #30363D;
+}
+.toggle-btn {
+  flex: 1; padding: 8px; border-radius: 10px; border: none;
+  background: transparent; color: #8B949E; font-family: inherit;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.25s;
+}
+.toggle-btn.active-buy { background: rgba(255, 82, 82, 0.15); color: #FF5252; }
+.toggle-btn.active-sell { background: rgba(0, 230, 118, 0.15); color: #00E676; }
+
+/* ============ BEST PRICE SUMMARY ============ */
+.best-price-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;
+}
+.best-mini-card {
+  background: #161B22; border: 1px solid #30363D; border-radius: 12px;
+  padding: 10px; text-align: center;
+}
+.best-mini-card .exchange-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px;
+}
+.best-mini-card .exchange-name { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.best-mini-card .best-price { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.best-mini-card .best-label { font-size: 9px; color: #8B949E; margin-top: 2px; }
+
+/* ============ SECTION HEADER ============ */
+.section-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px; margin-top: 4px;
+}
+.section-header .dot { width: 10px; height: 10px; border-radius: 50%; }
+.section-header h3 { font-size: 13px; font-weight: 600; color: #E6EDF3; }
+.section-header .count { font-size: 10px; color: #8B949E; background: #161B22; padding: 2px 8px; border-radius: 10px; }
+
+/* ============ P2P AD CARD ============ */
+.p2p-card {
+  background: #1C2333; border: 1px solid #30363D; border-radius: 14px;
+  padding: 12px; margin-bottom: 8px; transition: all 0.2s;
+  cursor: pointer;
+}
+.p2p-card:hover { border-color: #6C63FF; transform: translateY(-1px); }
+.p2p-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.p2p-price-group { display: flex; flex-direction: column; }
+.p2p-price { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.p2p-price.buy-price { color: #FF5252; }
+.p2p-price.sell-price { color: #00E676; }
+.p2p-fiat-label { font-size: 10px; color: #8B949E; font-weight: 500; }
+.exchange-badge {
+  padding: 3px 10px; border-radius: 8px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.badge-binance { background: rgba(240, 185, 11, 0.15); color: #F0B90B; }
+.badge-bybit { background: rgba(247, 166, 0, 0.15); color: #F7A600; }
+.badge-bingx { background: rgba(0, 212, 170, 0.15); color: #00D4AA; }
+
+.p2p-merchant { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.merchant-avatar {
+  width: 20px; height: 20px; border-radius: 50%; background: #30363D;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: #8B949E;
+}
+.merchant-name { font-size: 12px; color: #E6EDF3; font-weight: 500; }
+.merchant-stats { font-size: 10px; color: #8B949E; }
+.merchant-rate { color: #00E676; font-weight: 600; }
+
+.p2p-details { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.detail-item {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 10px; color: #8B949E;
+}
+.detail-item .detail-value { color: #E6EDF3; font-weight: 500; }
+.detail-item svg { width: 12px; height: 12px; }
+
+.payment-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.payment-tag {
+  padding: 3px 8px; border-radius: 6px; font-size: 9px; font-weight: 500;
+  background: rgba(108, 99, 255, 0.1); color: #6C63FF; border: 1px solid rgba(108, 99, 255, 0.2);
+}
+.payment-tag.bank { background: rgba(0, 212, 170, 0.1); color: #00D4AA; border-color: rgba(0, 212, 170, 0.2); }
+
+/* ============ ARBITRAGE TAB ============ */
+.filter-bar {
+  display: flex; gap: 8px; margin-bottom: 12px; align-items: center;
+}
+.filter-dropdown {
+  padding: 7px 12px; border-radius: 10px; background: #161B22;
+  border: 1px solid #30363D; color: #E6EDF3; font-family: inherit;
+  font-size: 12px; font-weight: 500; cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238B949E' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  padding-right: 26px;
+}
+.filter-chip {
+  padding: 7px 14px; border-radius: 20px; background: #161B22;
+  border: 1.5px solid #30363D; color: #8B949E; font-family: inherit;
+  font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+}
+.filter-chip.active { background: rgba(0, 230, 118, 0.12); border-color: #00E676; color: #00E676; }
+
+.disclaimer-banner {
+  background: rgba(247, 166, 0, 0.1); border: 1px solid rgba(247, 166, 0, 0.3);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.disclaimer-icon { font-size: 16px; flex-shrink: 0; }
+.disclaimer-text { font-size: 10px; color: #F7A600; line-height: 1.5; }
+
+.arb-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px;
+}
+.arb-stat-card {
+  background: #161B22; border: 1px solid #30363D; border-radius: 10px;
+  padding: 10px; text-align: center;
+}
+.arb-stat-value { font-size: 18px; font-weight: 700; }
+.arb-stat-label { font-size: 9px; color: #8B949E; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.arb-card {
+  background: #1C2333; border: 1px solid #30363D; border-radius: 14px;
+  padding: 14px; margin-bottom: 10px; transition: all 0.2s;
+}
+.arb-card:hover { border-color: #6C63FF; }
+.arb-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.arb-pair { font-size: 14px; font-weight: 600; color: #E6EDF3; }
+.arb-spread-badge {
+  padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
+}
+.badge-profit { background: rgba(0, 230, 118, 0.15); color: #00E676; }
+.badge-low-profit { background: rgba(247, 166, 0, 0.15); color: #F7A600; }
+.badge-loss { background: rgba(255, 82, 82, 0.15); color: #FF5252; }
+
+.arb-exchanges {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px;
+  align-items: center; margin-bottom: 12px;
+}
+.arb-exchange-box {
+  background: #161B22; border: 1px solid #30363D; border-radius: 10px;
+  padding: 10px; text-align: center;
+}
+.arb-exchange-box .arb-type { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.arb-exchange-box .arb-type.buy { color: #FF5252; }
+.arb-exchange-box .arb-type.sell { color: #00E676; }
+.arb-exchange-box .arb-exchange-name { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+.arb-exchange-box .arb-exchange-price { font-size: 16px; font-weight: 700; color: #E6EDF3; }
+.arb-arrow {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.arb-arrow-icon { color: #6C63FF; width: 20px; height: 20px; }
+.arb-gross { font-size: 9px; color: #8B949E; font-weight: 500; }
+
+.arb-footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.arb-detail {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 10px; color: #8B949E;
+}
+.arb-detail .value { color: #E6EDF3; font-weight: 500; }
+.risk-badge {
+  padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.risk-low { background: rgba(0, 230, 118, 0.15); color: #00E676; }
+.risk-medium { background: rgba(247, 166, 0, 0.15); color: #F7A600; }
+.risk-high { background: rgba(255, 82, 82, 0.15); color: #FF5252; }
+.risk-very-high { background: rgba(255, 82, 82, 0.25); color: #FF5252; }
+
+/* ============ HISTORY TAB ============ */
+.time-chips { display: flex; gap: 6px; margin-bottom: 14px; }
+.time-chip {
+  padding: 6px 14px; border-radius: 20px; background: #161B22;
+  border: 1.5px solid #30363D; color: #8B949E; font-family: inherit;
+  font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+}
+.time-chip.active { background: rgba(108, 99, 255, 0.15); border-color: #6C63FF; color: #6C63FF; }
+
+.chart-container {
+  background: #1C2333; border: 1px solid #30363D; border-radius: 14px;
+  padding: 14px; margin-bottom: 12px; position: relative;
+}
+.chart-title { font-size: 12px; font-weight: 600; color: #E6EDF3; margin-bottom: 4px; }
+.chart-subtitle { font-size: 10px; color: #8B949E; margin-bottom: 10px; }
+#priceChart { width: 100%; height: 180px; display: block; }
+
+.chart-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 14px;
+}
+.chart-stat {
+  background: #161B22; border: 1px solid #30363D; border-radius: 8px;
+  padding: 8px; text-align: center;
+}
+.chart-stat-value { font-size: 13px; font-weight: 700; color: #E6EDF3; }
+.chart-stat-label { font-size: 8px; color: #8B949E; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+.export-row { display: flex; gap: 8px; }
+.export-btn {
+  flex: 1; padding: 10px; border-radius: 10px; background: #161B22;
+  border: 1px solid #30363D; color: #8B949E; font-family: inherit;
+  font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.export-btn:hover { border-color: #6C63FF; color: #E6EDF3; background: #1C2333; }
+.export-btn svg { width: 16px; height: 16px; }
+
+/* ============ SETTINGS TAB ============ */
+.settings-section { margin-bottom: 16px; }
+.settings-section-title {
+  font-size: 11px; font-weight: 700; color: #8B949E; text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 8px; padding-left: 2px;
+  display: flex; align-items: center; gap: 6px;
+}
+.settings-section-title svg { width: 14px; height: 14px; color: #6C63FF; }
+
+.setting-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px; background: #1C2333; border: 1px solid #30363D;
+  border-radius: 10px; margin-bottom: 4px;
+}
+.setting-item:first-of-type { border-radius: 10px 10px 2px 2px; }
+.setting-item:last-of-type { border-radius: 2px 2px 10px 10px; }
+.setting-item:only-of-type { border-radius: 10px; }
+.setting-item + .setting-item { border-top: none; }
+.setting-info { display: flex; flex-direction: column; }
+.setting-label { font-size: 13px; font-weight: 500; color: #E6EDF3; }
+.setting-desc { font-size: 10px; color: #8B949E; margin-top: 1px; }
+
+/* Toggle switch */
+.toggle-switch {
+  width: 42px; height: 24px; border-radius: 12px; background: #30363D;
+  position: relative; cursor: pointer; transition: background 0.3s;
+  flex-shrink: 0;
+}
+.toggle-switch.active { background: #6C63FF; }
+.toggle-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  transition: transform 0.3s;
+}
+.toggle-switch.active::after { transform: translateX(18px); }
+
+/* Slider */
+.setting-slider {
+  display: flex; align-items: center; gap: 10px; margin-left: auto;
+}
+.slider-value { font-size: 12px; font-weight: 600; color: #6C63FF; min-width: 30px; text-align: right; }
+input[type="range"] {
+  -webkit-appearance: none; width: 100px; height: 4px;
+  border-radius: 2px; background: #30363D; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  border-radius: 50%; background: #6C63FF; cursor: pointer;
+  border: 2px solid #0D1117;
+}
+
+/* Fiat chips in settings */
+.settings-fiat-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; background: #1C2333; border: 1px solid #30363D; border-radius: 10px; }
+.settings-fiat-chip {
+  padding: 6px 12px; border-radius: 16px; background: #161B22;
+  border: 1.5px solid #30363D; color: #8B949E; font-size: 11px;
+  font-weight: 500; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 4px;
+}
+.settings-fiat-chip.active { background: rgba(108, 99, 255, 0.15); border-color: #6C63FF; color: #6C63FF; }
+
+/* API status */
+.api-status-item {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  background: #1C2333; border: 1px solid #30363D; border-radius: 8px;
+  margin-bottom: 4px;
+}
+.api-status-item:last-child { margin-bottom: 0; }
+.api-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.api-dot.online { background: #00E676; box-shadow: 0 0 6px rgba(0, 230, 118, 0.4); }
+.api-dot.offline { background: #FF5252; box-shadow: 0 0 6px rgba(255, 82, 82, 0.4); }
+.api-name { font-size: 13px; font-weight: 500; color: #E6EDF3; flex: 1; }
+.api-latency { font-size: 10px; color: #8B949E; }
+.api-status-text { font-size: 10px; font-weight: 600; }
+.api-status-text.online { color: #00E676; }
+.api-status-text.offline { color: #FF5252; }
+
+/* Disclaimer boxes */
+.disclaimer-box {
+  padding: 12px; border-radius: 10px; margin-bottom: 8px;
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.disclaimer-box.risk { background: rgba(255, 82, 82, 0.08); border: 1px solid rgba(255, 82, 82, 0.25); }
+.disclaimer-box.warning { background: rgba(247, 166, 0, 0.08); border: 1px solid rgba(247, 166, 0, 0.25); }
+.disclaimer-box-icon { font-size: 16px; flex-shrink: 0; }
+.disclaimer-box-title { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.disclaimer-box.risk .disclaimer-box-title { color: #FF5252; }
+.disclaimer-box.warning .disclaimer-box-title { color: #F7A600; }
+.disclaimer-box-text { font-size: 10px; line-height: 1.5; color: #8B949E; }
+
+.app-version { text-align: center; padding: 12px; font-size: 11px; color: #8B949E; }
+
+/* ============ LAST UPDATED ============ */
+.last-updated {
+  text-align: center; padding: 10px 0; font-size: 10px; color: #8B949E;
+  border-top: 1px solid #30363D; margin-top: 8px;
+}
+.last-updated .dot-pulse {
+  display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+  background: #00E676; margin-right: 4px; animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ============ LIGHT THEME ============ */
+.light .phone-frame { background: #F6F8FA; border-color: #D0D7DE; }
+.light .status-bar { background: #F6F8FA; color: #24292F; }
+.light .app-header { background: #F6F8FA; border-color: #D0D7DE; }
+.light .app-title { color: #24292F; }
+.light .app-subtitle { color: #57606A; }
+.light .header-btn { background: #fff; color: #57606A; }
+.light .header-btn:hover { background: #F3F4F6; color: #24292F; }
+.light .content-area { background: #F6F8FA; }
+.light .tab-content { background: #F6F8FA; }
+.light .bottom-nav { background: #fff; border-color: #D0D7DE; }
+.light .nav-item svg { color: #57606A; }
+.light .nav-item span { color: #57606A; }
+.light .nav-item.active svg { color: #6C63FF; }
+.light .nav-item.active span { color: #6C63FF; }
+.light .fiat-chip { background: #fff; border-color: #D0D7DE; color: #57606A; }
+.light .fiat-chip.active { background: rgba(108, 99, 255, 0.1); border-color: #6C63FF; color: #6C63FF; }
+.light .toggle-container { background: #fff; border-color: #D0D7DE; }
+.light .toggle-btn { color: #57606A; }
+.light .best-mini-card { background: #fff; border-color: #D0D7DE; }
+.light .best-mini-card .best-price { color: #24292F; }
+.light .section-header h3 { color: #24292F; }
+.light .p2p-card { background: #fff; border-color: #D0D7DE; }
+.light .p2p-card:hover { border-color: #6C63FF; }
+.light .p2p-fiat-label { color: #57606A; }
+.light .merchant-name { color: #24292F; }
+.light .merchant-stats { color: #57606A; }
+.light .detail-item { color: #57606A; }
+.light .detail-item .detail-value { color: #24292F; }
+.light .filter-dropdown { background: #fff; border-color: #D0D7DE; color: #24292F; }
+.light .filter-chip { background: #fff; border-color: #D0D7DE; color: #57606A; }
+.light .arb-stat-card { background: #fff; border-color: #D0D7DE; }
+.light .arb-stat-value { color: #24292F; }
+.light .arb-card { background: #fff; border-color: #D0D7DE; }
+.light .arb-pair { color: #24292F; }
+.light .arb-exchange-box { background: #F6F8FA; border-color: #D0D7DE; }
+.light .arb-exchange-box .arb-exchange-price { color: #24292F; }
+.light .time-chip { background: #fff; border-color: #D0D7DE; color: #57606A; }
+.light .chart-container { background: #fff; border-color: #D0D7DE; }
+.light .chart-title { color: #24292F; }
+.light .chart-stat { background: #fff; border-color: #D0D7DE; }
+.light .chart-stat-value { color: #24292F; }
+.light .export-btn { background: #fff; border-color: #D0D7DE; color: #57606A; }
+.light .export-btn:hover { background: #F3F4F6; color: #24292F; }
+.light .setting-item { background: #fff; border-color: #D0D7DE; }
+.light .setting-label { color: #24292F; }
+.light .settings-fiat-grid { background: #fff; border-color: #D0D7DE; }
+.light .settings-fiat-chip { background: #F6F8FA; border-color: #D0D7DE; color: #57606A; }
+.light .settings-fiat-chip.active { background: rgba(108, 99, 255, 0.1); border-color: #6C63FF; color: #6C63FF; }
+.light .api-status-item { background: #fff; border-color: #D0D7DE; }
+.light .api-name { color: #24292F; }
+.light .last-updated { border-color: #D0D7DE; color: #57606A; }
+
+/* Smooth theme transitions */
+.phone-frame, .status-bar, .app-header, .content-area, .bottom-nav,
+.best-mini-card, .p2p-card, .arb-card, .arb-stat-card, .chart-container,
+.chart-stat, .setting-item, .api-status-item, .fiat-chip, .filter-chip,
+.time-chip, .export-btn, .toggle-container, .toggle-btn, .header-btn,
+.settings-fiat-grid, .settings-fiat-chip, .filter-dropdown, .arb-exchange-box,
+.disclaimer-banner, .disclaimer-box {
+  transition: background 0.3s, border-color 0.3s, color 0.3s;
+}
+</style>
+</head>
+<body>
+<div class="phone-frame">
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-bar-left">
+      <span>9:41</span>
+    </div>
+    <div class="status-bar-right">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/></svg>
+      <div class="battery"><div class="battery-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- App Header -->
+  <div class="app-header">
+    <div class="app-header-left">
+      <div class="app-logo">P2P</div>
+      <div>
+        <div class="app-title">P2P Monitor</div>
+        <div class="app-subtitle">Arbitrage Detector</div>
+      </div>
+    </div>
+    <div class="app-header-right">
+      <button class="header-btn" id="refreshBtn" title="Actualizar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      </button>
+      <button class="header-btn theme-btn" id="themeBtn" title="Cambiar tema">
+        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Content Area -->
+  <div class="content-area">
+    <!-- TAB 1: Precios -->
+    <div class="tab-content active" id="tab-prices">
+      <!-- Fiat filter chips -->
+      <div class="fiat-scroll" id="fiatScroll">
+        <div class="fiat-chip active" data-fiat="VES"><span class="flag">🇻🇪</span> VES</div>
+        <div class="fiat-chip" data-fiat="ARS"><span class="flag">🇦🇷</span> ARS</div>
+        <div class="fiat-chip" data-fiat="COP"><span class="flag">🇨🇴</span> COP</div>
+        <div class="fiat-chip" data-fiat="MXN"><span class="flag">🇲🇽</span> MXN</div>
+        <div class="fiat-chip" data-fiat="BRL"><span class="flag">🇧🇷</span> BRL</div>
+        <div class="fiat-chip" data-fiat="CLP"><span class="flag">🇨🇱</span> CLP</div>
+        <div class="fiat-chip" data-fiat="PEN"><span class="flag">🇵🇪</span> PEN</div>
+        <div class="fiat-chip" data-fiat="USD"><span class="flag">🇺🇸</span> USD</div>
+      </div>
+
+      <!-- Buy/Sell Toggle -->
+      <div class="toggle-container">
+        <button class="toggle-btn active-buy" id="buyBtn" data-type="buy">Comprar</button>
+        <button class="toggle-btn" id="sellBtn" data-type="sell">Vender</button>
+      </div>
+
+      <!-- Best Price Summary -->
+      <div class="best-price-row" id="bestPriceRow">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Exchange sections populated by JS -->
+      <div id="exchangeSections">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="last-updated">
+        <span class="dot-pulse"></span>
+        Última actualización: <span id="lastUpdated">11 Mar 2025, 14:32:08</span>
+      </div>
+    </div>
+
+    <!-- TAB 2: Arbitraje -->
+    <div class="tab-content" id="tab-arbitrage">
+      <div class="filter-bar">
+        <select class="filter-dropdown" id="arbFiatFilter">
+          <option value="ALL">Todas las monedas</option>
+          <option value="VES">🇻🇪 VES</option>
+          <option value="ARS">🇦🇷 ARS</option>
+          <option value="COP">🇨🇴 COP</option>
+          <option value="MXN">🇲🇽 MXN</option>
+          <option value="BRL">🇧🇷 BRL</option>
+        </select>
+        <button class="filter-chip active" id="profitFilter">Rentable</button>
+      </div>
+
+      <div class="disclaimer-banner">
+        <span class="disclaimer-icon">⚠️</span>
+        <span class="disclaimer-text">Las oportunidades de arbitraje son estimaciones basadas en los mejores precios publicados. Las ganancias reales pueden variar debido a disponibilidad, comisiones de transferencia, slippage y tiempo de ejecución.</span>
+      </div>
+
+      <div class="arb-stats">
+        <div class="arb-stat-card">
+          <div class="arb-stat-value" style="color:#6C63FF">5</div>
+          <div class="arb-stat-label">Oportunidades</div>
+        </div>
+        <div class="arb-stat-card">
+          <div class="arb-stat-value" style="color:#00E676">3</div>
+          <div class="arb-stat-label">Rentables</div>
+        </div>
+        <div class="arb-stat-card">
+          <div class="arb-stat-value" style="color:#00E676">2.24%</div>
+          <div class="arb-stat-label">Mejor spread</div>
+        </div>
+      </div>
+
+      <div id="arbCards">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="last-updated">
+        <span class="dot-pulse"></span>
+        Escaneo cada 15s &bull; <span id="arbLastUpdated">11 Mar 2025, 14:32:08</span>
+      </div>
+    </div>
+
+    <!-- TAB 3: Historial -->
+    <div class="tab-content" id="tab-history">
+      <div class="filter-bar">
+        <select class="filter-dropdown" id="histExchange">
+          <option value="ALL">Todos</option>
+          <option value="BINANCE">Binance</option>
+          <option value="BYBIT">Bybit</option>
+          <option value="BINGX">BingX</option>
+        </select>
+        <select class="filter-dropdown" id="histFiat">
+          <option value="VES">🇻🇪 VES</option>
+          <option value="ARS">🇦🇷 ARS</option>
+          <option value="COP">🇨🇴 COP</option>
+        </select>
+        <select class="filter-dropdown" id="histType">
+          <option value="BUY">Compra</option>
+          <option value="SELL">Venta</option>
+        </select>
+      </div>
+
+      <div class="time-chips">
+        <button class="time-chip" data-range="24h">24h</button>
+        <button class="time-chip" data-range="3d">3 días</button>
+        <button class="time-chip active" data-range="7d">7 días</button>
+        <button class="time-chip" data-range="30d">30 días</button>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">USDT/VES - Binance Buy</div>
+        <div class="chart-subtitle">7 días &bull; Últimos 168 puntos</div>
+        <canvas id="priceChart"></canvas>
+      </div>
+
+      <div class="chart-stats">
+        <div class="chart-stat">
+          <div class="chart-stat-value">35.20</div>
+          <div class="chart-stat-label">Mín</div>
+        </div>
+        <div class="chart-stat">
+          <div class="chart-stat-value">37.80</div>
+          <div class="chart-stat-label">Máx</div>
+        </div>
+        <div class="chart-stat">
+          <div class="chart-stat-value">36.45</div>
+          <div class="chart-stat-label">Promedio</div>
+        </div>
+        <div class="chart-stat">
+          <div class="chart-stat-value" style="color:#00E676">+3.52%</div>
+          <div class="chart-stat-label">Cambio</div>
+        </div>
+      </div>
+
+      <div class="export-row">
+        <button class="export-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          CSV
+        </button>
+        <button class="export-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Compartir
+        </button>
+        <button class="export-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Limpiar
+        </button>
+      </div>
+
+      <div class="last-updated" style="margin-top:12px">
+        <span class="dot-pulse"></span>
+        Datos históricos desde: 4 Mar 2025
+      </div>
+    </div>
+
+    <!-- TAB 4: Ajustes -->
+    <div class="tab-content" id="tab-settings">
+      <!-- Refresh Section -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Actualización
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">Intervalo de actualización</div>
+            <div class="setting-desc">Tiempo entre cada escaneo</div>
+          </div>
+          <div class="setting-slider">
+            <input type="range" min="5" max="60" value="15" step="5" id="refreshSlider">
+            <span class="slider-value" id="refreshValue">15s</span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">Auto-refresh</div>
+            <div class="setting-desc">Actualizar automáticamente</div>
+          </div>
+          <div class="toggle-switch active" id="autoRefreshToggle"></div>
+        </div>
+      </div>
+
+      <!-- Notifications Section -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Notificaciones
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">Alertas de arbitraje</div>
+            <div class="setting-desc">Notificar oportunidades rentables</div>
+          </div>
+          <div class="toggle-switch active" id="alertsToggle"></div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">Umbral de rentabilidad</div>
+            <div class="setting-desc">Spread mínimo para alertar</div>
+          </div>
+          <div class="setting-slider">
+            <input type="range" min="0.5" max="5" value="1.0" step="0.1" id="thresholdSlider">
+            <span class="slider-value" id="thresholdValue">1.0%</span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">Sonido</div>
+            <div class="setting-desc">Reproducir sonido en alertas</div>
+          </div>
+          <div class="toggle-switch active" id="soundToggle"></div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">Vibrar</div>
+            <div class="setting-desc">Vibración en alertas</div>
+          </div>
+          <div class="toggle-switch" id="vibrateToggle"></div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">Cooldown entre alertas</div>
+            <div class="setting-desc">Evitar spam de notificaciones</div>
+          </div>
+          <div class="setting-slider">
+            <input type="range" min="30" max="300" value="60" step="30" id="cooldownSlider">
+            <span class="slider-value" id="cooldownValue">60s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fiat Section -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Monedas fiat
+        </div>
+        <div class="settings-fiat-grid">
+          <div class="settings-fiat-chip active" data-fiat="VES"><span class="flag">🇻🇪</span> VES</div>
+          <div class="settings-fiat-chip active" data-fiat="ARS"><span class="flag">🇦🇷</span> ARS</div>
+          <div class="settings-fiat-chip active" data-fiat="COP"><span class="flag">🇨🇴</span> COP</div>
+          <div class="settings-fiat-chip active" data-fiat="MXN"><span class="flag">🇲🇽</span> MXN</div>
+          <div class="settings-fiat-chip active" data-fiat="BRL"><span class="flag">🇧🇷</span> BRL</div>
+          <div class="settings-fiat-chip" data-fiat="CLP"><span class="flag">🇨🇱</span> CLP</div>
+          <div class="settings-fiat-chip" data-fiat="PEN"><span class="flag">🇵🇪</span> PEN</div>
+          <div class="settings-fiat-chip" data-fiat="USD"><span class="flag">🇺🇸</span> USD</div>
+        </div>
+      </div>
+
+      <!-- API Status Section -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Estado de APIs
+        </div>
+        <div class="api-status-item">
+          <div class="api-dot online"></div>
+          <div class="api-name">Binance P2P</div>
+          <div class="api-latency">142ms</div>
+          <div class="api-status-text online">Online</div>
+        </div>
+        <div class="api-status-item">
+          <div class="api-dot online"></div>
+          <div class="api-name">Bybit P2P</div>
+          <div class="api-latency">198ms</div>
+          <div class="api-status-text online">Online</div>
+        </div>
+        <div class="api-status-item">
+          <div class="api-dot offline"></div>
+          <div class="api-name">BingX P2P</div>
+          <div class="api-latency">—</div>
+          <div class="api-status-text offline">No disponible</div>
+        </div>
+      </div>
+
+      <!-- About Section -->
+      <div class="settings-section">
+        <div class="settings-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Acerca de
+        </div>
+        <div class="disclaimer-box risk">
+          <span class="disclaimer-box-icon">🔴</span>
+          <div>
+            <div class="disclaimer-box-title">Aviso de Riesgo</div>
+            <div class="disclaimer-box-text">El trading P2P y arbitraje conlleva riesgos significativos. Los precios publicados pueden no estar disponibles al momento de ejecutar la operación. Los usuarios son responsables de verificar toda información antes de operar. Esta app es solo informativa.</div>
+          </div>
+        </div>
+        <div class="disclaimer-box warning">
+          <span class="disclaimer-box-icon">🟠</span>
+          <div>
+            <div class="disclaimer-box-title">Limitaciones de API</div>
+            <div class="disclaimer-box-text">Las APIs P2P tienen rate limits que pueden retrasar la actualización de datos. Los precios mostrados pueden tener un retraso de hasta 30 segundos. Las APIs no garantizan disponibilidad continua.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="app-version">
+        P2P Arbitrage Monitor v1.2.0 &bull; Build 2025.03.11
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <div class="bottom-nav">
+    <button class="nav-item active" data-tab="prices">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span>Precios</span>
+    </button>
+    <button class="nav-item" data-tab="arbitrage">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      <span>Arbitraje</span>
+    </button>
+    <button class="nav-item" data-tab="history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Historial</span>
+    </button>
+    <button class="nav-item" data-tab="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Ajustes</span>
+    </button>
+  </div>
+</div>
+
+<script>
+// ============ MOCK DATA ============
+const MOCK_DATA = {
+  VES: {
+    flag: '🇻🇪',
+    buy: {
+      binance: [
+        { price: 36.50, merchant: 'CryptoVE_Trader', rate: 98.5, orders: 1250, available: 4500, min: 500, max: 50000, payments: ['Transferencia Bancaria', 'Pago Móvil'] },
+        { price: 36.55, merchant: 'VE_Exchange_Pro', rate: 97.8, orders: 890, available: 2100, min: 200, max: 20000, payments: ['Banesco', 'Mercantil'] },
+        { price: 36.60, merchant: 'Caracas_Digital', rate: 96.2, orders: 560, available: 800, min: 100, max: 10000, payments: ['Pago Móvil', 'Zelle'] },
+      ],
+      bybit: [
+        { price: 36.80, merchant: 'VE_Bybit_Ops', rate: 97.1, orders: 780, available: 3200, min: 300, max: 30000, payments: ['Transferencia Bancaria', 'Pago Móvil'] },
+        { price: 36.85, merchant: 'Digital_VES', rate: 95.5, orders: 320, available: 1500, min: 100, max: 15000, payments: ['Banesco'] },
+      ],
+      bingx: [
+        { price: 37.10, merchant: 'BingX_VE', rate: 94.3, orders: 180, available: 600, min: 200, max: 8000, payments: ['Transferencia Bancaria'] },
+      ],
+    },
+    sell: {
+      binance: [
+        { price: 37.20, merchant: 'VE_Buyer_Pro', rate: 98.1, orders: 1450, available: 5600, min: 500, max: 80000, payments: ['Transferencia Bancaria', 'Pago Móvil', 'Banesco'] },
+        { price: 37.25, merchant: 'Caracas_Crypto', rate: 97.5, orders: 920, available: 3200, min: 300, max: 50000, payments: ['Mercantil', 'Provincial'] },
+        { price: 37.30, merchant: 'VE_Digital_Fiat', rate: 96.0, orders: 410, available: 1800, min: 100, max: 25000, payments: ['Pago Móvil'] },
+      ],
+      bybit: [
+        { price: 37.50, merchant: 'VE_Sell_Bybit', rate: 96.8, orders: 640, available: 2800, min: 200, max: 40000, payments: ['Transferencia Bancaria', 'Pago Móvil'] },
+        { price: 37.55, merchant: 'Bybit_VES_Direct', rate: 95.2, orders: 290, available: 1200, min: 100, max: 15000, payments: ['Banesco'] },
+      ],
+      bingx: [
+        { price: 37.80, merchant: 'BingX_VE_Sell', rate: 93.8, orders: 120, available: 400, min: 200, max: 6000, payments: ['Transferencia Bancaria'] },
+      ],
+    }
+  },
+  ARS: {
+    flag: '🇦🇷',
+    buy: {
+      binance: [
+        { price: 1250, merchant: 'AR_Crypto_Hub', rate: 98.7, orders: 3200, available: 8000, min: 5000, max: 500000, payments: ['Mercado Pago', 'Transferencia Bancaria'] },
+        { price: 1252, merchant: 'BuenosAires_P2P', rate: 97.3, orders: 1800, available: 4500, min: 2000, max: 300000, payments: ['Banco Nación', 'Galicia'] },
+        { price: 1255, merchant: 'P2P_Argentina', rate: 95.8, orders: 920, available: 2000, min: 1000, max: 150000, payments: ['Mercado Pago'] },
+      ],
+      bybit: [
+        { price: 1260, merchant: 'Bybit_AR_Buy', rate: 96.5, orders: 1100, available: 3800, min: 3000, max: 400000, payments: ['Transferencia Bancaria', 'Mercado Pago'] },
+        { price: 1263, merchant: 'AR_Direct_Trade', rate: 94.2, orders: 450, available: 1500, min: 1000, max: 100000, payments: ['Banco Provincia'] },
+      ],
+      bingx: [
+        { price: 1270, merchant: 'BingX_AR', rate: 93.1, orders: 200, available: 800, min: 5000, max: 80000, payments: ['Mercado Pago'] },
+      ],
+    },
+    sell: {
+      binance: [
+        { price: 1280, merchant: 'AR_Sell_Master', rate: 98.9, orders: 2800, available: 12000, min: 5000, max: 800000, payments: ['Mercado Pago', 'Transferencia Bancaria', 'Banco Nación'] },
+        { price: 1282, merchant: 'BuenosAires_Vende', rate: 97.6, orders: 1500, available: 6000, min: 2000, max: 400000, payments: ['Galicia', 'BBVA'] },
+      ],
+      bybit: [
+        { price: 1290, merchant: 'Bybit_AR_Sell', rate: 95.9, orders: 850, available: 3200, min: 3000, max: 300000, payments: ['Transferencia Bancaria'] },
+        { price: 1295, merchant: 'AR_Bybit_Direct', rate: 94.1, orders: 310, available: 1100, min: 1000, max: 100000, payments: ['Mercado Pago'] },
+      ],
+      bingx: [
+        { price: 1305, merchant: 'BingX_AR_Sell', rate: 92.5, orders: 100, available: 500, min: 5000, max: 60000, payments: ['Mercado Pago'] },
+      ],
+    }
+  },
+  COP: {
+    flag: '🇨🇴',
+    buy: {
+      binance: [
+        { price: 4150, merchant: 'CO_Crypto_Trade', rate: 98.3, orders: 2100, available: 6500, min: 20000, max: 5000000, payments: ['Nequi', 'Bancolombia', 'Davivienda'] },
+        { price: 4155, merchant: 'Bogota_P2P', rate: 97.0, orders: 1400, available: 3200, min: 10000, max: 3000000, payments: ['Transferencia Bancaria'] },
+        { price: 4160, merchant: 'CO_Digital_Exchange', rate: 95.4, orders: 680, available: 1500, min: 5000, max: 1500000, payments: ['Nequi'] },
+      ],
+      bybit: [
+        { price: 4180, merchant: 'Bybit_CO_Buy', rate: 96.7, orders: 950, available: 4000, min: 15000, max: 4000000, payments: ['Bancolombia', 'Nequi'] },
+        { price: 4185, merchant: 'CO_Bybit_Direct', rate: 94.8, orders: 380, available: 1800, min: 10000, max: 2000000, payments: ['Davivienda'] },
+      ],
+      bingx: [
+        { price: 4210, merchant: 'BingX_CO', rate: 93.0, orders: 150, available: 500, min: 20000, max: 1000000, payments: ['Nequi'] },
+      ],
+    },
+    sell: {
+      binance: [
+        { price: 4220, merchant: 'CO_Sell_Top', rate: 98.6, orders: 2500, available: 9000, min: 20000, max: 8000000, payments: ['Nequi', 'Bancolombia', 'Davivienda'] },
+        { price: 4225, merchant: 'Medellin_Crypto', rate: 97.2, orders: 1200, available: 4500, min: 10000, max: 4000000, payments: ['Transferencia Bancaria'] },
+      ],
+      bybit: [
+        { price: 4250, merchant: 'Bybit_CO_Sell', rate: 96.0, orders: 720, available: 2800, min: 15000, max: 3500000, payments: ['Bancolombia'] },
+      ],
+      bingx: [
+        { price: 4280, merchant: 'BingX_CO_Sell', rate: 92.2, orders: 80, available: 300, min: 20000, max: 800000, payments: ['Nequi'] },
+      ],
+    }
+  },
+  MXN: {
+    flag: '🇲🇽',
+    buy: {
+      binance: [
+        { price: 17.25, merchant: 'MX_Crypto_Deal', rate: 98.9, orders: 4500, available: 15000, min: 100, max: 100000, payments: ['Transferencia Bancaria', 'SPEI', 'BBVA'] },
+        { price: 17.28, merchant: 'Mexico_P2P_Pro', rate: 97.5, orders: 2800, available: 8500, min: 50, max: 80000, payments: ['SPEI', 'Banorte'] },
+        { price: 17.30, merchant: 'MX_Digital_Fiat', rate: 96.1, orders: 1100, available: 3500, min: 100, max: 50000, payments: ['Transferencia Bancaria'] },
+      ],
+      bybit: [
+        { price: 17.35, merchant: 'Bybit_MX_Buy', rate: 97.2, orders: 1600, available: 6000, min: 200, max: 70000, payments: ['SPEI', 'Transferencia Bancaria'] },
+        { price: 17.38, merchant: 'MX_Bybit_Direct', rate: 95.0, orders: 580, available: 2200, min: 100, max: 40000, payments: ['BBVA'] },
+      ],
+      bingx: [
+        { price: 17.50, merchant: 'BingX_MX', rate: 93.5, orders: 250, available: 900, min: 500, max: 25000, payments: ['SPEI'] },
+      ],
+    },
+    sell: {
+      binance: [
+        { price: 17.60, merchant: 'MX_Sell_Expert', rate: 99.1, orders: 5200, available: 20000, min: 100, max: 200000, payments: ['SPEI', 'Transferencia Bancaria', 'BBVA', 'Banorte'] },
+        { price: 17.62, merchant: 'Monterrey_Crypto', rate: 97.8, orders: 1900, available: 7500, min: 50, max: 100000, payments: ['SPEI'] },
+      ],
+      bybit: [
+        { price: 17.75, merchant: 'Bybit_MX_Sell', rate: 96.3, orders: 980, available: 4500, min: 200, max: 60000, payments: ['Transferencia Bancaria'] },
+      ],
+      bingx: [
+        { price: 17.90, merchant: 'BingX_MX_Sell', rate: 92.8, orders: 130, available: 600, min: 500, max: 15000, payments: ['SPEI'] },
+      ],
+    }
+  },
+  BRL: {
+    flag: '🇧🇷',
+    buy: {
+      binance: [
+        { price: 5.85, merchant: 'BR_Crypto_Ltda', rate: 98.4, orders: 3800, available: 12000, min: 50, max: 100000, payments: ['PIX', 'Transferência Bancária'] },
+        { price: 5.87, merchant: 'SaoPaulo_P2P', rate: 97.1, orders: 2100, available: 6000, min: 20, max: 50000, payments: ['PIX', 'Itaú'] },
+      ],
+      bybit: [
+        { price: 5.90, merchant: 'Bybit_BR_Buy', rate: 96.6, orders: 1200, available: 4500, min: 100, max: 70000, payments: ['PIX'] },
+      ],
+      bingx: [
+        { price: 5.95, merchant: 'BingX_BR', rate: 93.8, orders: 180, available: 700, min: 200, max: 20000, payments: ['PIX'] },
+      ],
+    },
+    sell: {
+      binance: [
+        { price: 5.98, merchant: 'BR_Sell_Premium', rate: 98.7, orders: 4200, available: 18000, min: 50, max: 150000, payments: ['PIX', 'Transferência Bancária', 'Nubank'] },
+      ],
+      bybit: [
+        { price: 6.05, merchant: 'Bybit_BR_Sell', rate: 95.8, orders: 850, available: 3500, min: 100, max: 60000, payments: ['PIX'] },
+      ],
+      bingx: [
+        { price: 6.12, merchant: 'BingX_BR_Sell', rate: 92.0, orders: 90, available: 400, min: 200, max: 15000, payments: ['PIX'] },
+      ],
+    }
+  },
+  CLP: { flag: '🇨🇱', buy: { binance: [{ price: 960, merchant: 'CL_Crypto', rate: 97.2, orders: 620, available: 2800, min: 5000, max: 500000, payments: ['Transferencia Bancaria'] }], bybit: [], bingx: [] }, sell: { binance: [{ price: 975, merchant: 'CL_Sell', rate: 96.8, orders: 480, available: 2100, min: 5000, max: 400000, payments: ['Transferencia Bancaria'] }], bybit: [], bingx: [] } },
+  PEN: { flag: '🇵🇪', buy: { binance: [{ price: 3.68, merchant: 'PE_Crypto', rate: 96.5, orders: 340, available: 1200, min: 20, max: 20000, payments: ['Transferencia Bancaria', 'Yape'] }], bybit: [], bingx: [] }, sell: { binance: [{ price: 3.75, merchant: 'PE_Sell', rate: 97.1, orders: 280, available: 900, min: 20, max: 15000, payments: ['Yape'] }], bybit: [], bingx: [] } },
+  USD: { flag: '🇺🇸', buy: { binance: [{ price: 1.001, merchant: 'USD_P2P', rate: 99.5, orders: 12000, available: 50000, min: 10, max: 1000000, payments: ['Wise', 'Zelle', 'Bank Transfer'] }], bybit: [{ price: 1.003, merchant: 'Bybit_USD', rate: 98.8, orders: 5500, available: 25000, min: 50, max: 500000, payments: ['Wise', 'Bank Transfer'] }], bingx: [] }, sell: { binance: [{ price: 1.005, merchant: 'USD_Sell_P2P', rate: 99.3, orders: 11000, available: 45000, min: 10, max: 900000, payments: ['Wise', 'Zelle', 'Bank Transfer'] }], bybit: [{ price: 1.008, merchant: 'Bybit_USD_Sell', rate: 98.5, orders: 4200, available: 20000, min: 50, max: 400000, payments: ['Wise'] }], bingx: [] } },
+};
+
+const ARBITRAGE_DATA = [
+  {
+    pair: 'VES/USDT',
+    buyExchange: 'Binance', buyPrice: 36.50, buyColor: '#F0B90B',
+    sellExchange: 'Bybit', sellPrice: 37.50, sellColor: '#F7A600',
+    grossSpread: 2.74, netSpread: 2.24, maxTrade: 3200, fees: '~0.5%', risk: 'low', riskLabel: 'Bajo'
+  },
+  {
+    pair: 'ARS/USDT',
+    buyExchange: 'Bybit', buyPrice: 1260, buyColor: '#F7A600',
+    sellExchange: 'Binance', sellPrice: 1280, sellColor: '#F0B90B',
+    grossSpread: 1.59, netSpread: 1.09, maxTrade: 3800, fees: '~0.5%', risk: 'medium', riskLabel: 'Medio'
+  },
+  {
+    pair: 'COP/USDT',
+    buyExchange: 'Bybit', buyPrice: 4180, buyColor: '#F7A600',
+    sellExchange: 'Binance', sellPrice: 4220, sellColor: '#F0B90B',
+    grossSpread: 0.96, netSpread: 0.46, maxTrade: 4000, fees: '~0.5%', risk: 'high', riskLabel: 'Alto'
+  },
+  {
+    pair: 'MXN/USDT',
+    buyExchange: 'Binance', buyPrice: 17.25, buyColor: '#F0B90B',
+    sellExchange: 'Bybit', sellPrice: 17.75, sellColor: '#F7A600',
+    grossSpread: 2.90, netSpread: 2.40, maxTrade: 6000, fees: '~0.5%', risk: 'low', riskLabel: 'Bajo'
+  },
+  {
+    pair: 'BRL/USDT',
+    buyExchange: 'Binance', buyPrice: 5.85, buyColor: '#F0B90B',
+    sellExchange: 'Bybit', sellPrice: 6.05, sellColor: '#F7A600',
+    grossSpread: 3.42, netSpread: 2.92, maxTrade: 4500, fees: '~0.5%', risk: 'very-high', riskLabel: 'Muy Alto'
+  },
+];
+
+// ============ STATE ============
+let currentTab = 'prices';
+let currentFiat = 'VES';
+let currentMode = 'buy'; // buy or sell
+let isLightTheme = false;
+
+// ============ HELPERS ============
+function formatPrice(price, fiat) {
+  if (fiat === 'VES' || fiat === 'ARS' || fiat === 'COP' || fiat === 'CLP') {
+    return price.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return price.toFixed(price < 10 ? 2 : 4);
+}
+
+function formatAmount(amount) {
+  if (amount >= 1000) return amount.toLocaleString('es');
+  return amount.toString();
+}
+
+function formatFiatRange(min, max, fiat) {
+  return `${formatPrice(min, fiat)} - ${formatPrice(max, fiat)}`;
+}
+
+function getBestPrice(data, type) {
+  if (!data || data.length === 0) return null;
+  const sorted = [...data].sort((a, b) => type === 'buy' ? a.price - b.price : b.price - a.price);
+  return sorted[0].price;
+}
+
+// ============ TAB SWITCHING ============
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    if (tab === currentTab) return;
+    currentTab = tab;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    if (tab === 'history') drawChart();
+  });
+});
+
+// ============ FIAT CHIP SWITCHING ============
+document.querySelectorAll('#fiatScroll .fiat-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    currentFiat = chip.dataset.fiat;
+    document.querySelectorAll('#fiatScroll .fiat-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    renderPrices();
+  });
+});
+
+// ============ BUY/SELL TOGGLE ============
+const buyBtn = document.getElementById('buyBtn');
+const sellBtn = document.getElementById('sellBtn');
+
+buyBtn.addEventListener('click', () => {
+  if (currentMode === 'buy') return;
+  currentMode = 'buy';
+  buyBtn.className = 'toggle-btn active-buy';
+  sellBtn.className = 'toggle-btn';
+  renderPrices();
+});
+
+sellBtn.addEventListener('click', () => {
+  if (currentMode === 'sell') return;
+  currentMode = 'sell';
+  sellBtn.className = 'toggle-btn active-sell';
+  buyBtn.className = 'toggle-btn';
+  renderPrices();
+});
+
+// ============ THEME TOGGLE ============
+document.getElementById('themeBtn').addEventListener('click', () => {
+  isLightTheme = !isLightTheme;
+  document.body.classList.toggle('light', isLightTheme);
+  const icon = document.getElementById('themeIcon');
+  if (isLightTheme) {
+    icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+  } else {
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  }
+  if (currentTab === 'history') drawChart();
+});
+
+// ============ REFRESH BUTTON ============
+document.getElementById('refreshBtn').addEventListener('click', function() {
+  this.classList.add('spinning');
+  setTimeout(() => this.classList.remove('spinning'), 1000);
+  const now = new Date();
+  const timeStr = now.toLocaleString('es', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('lastUpdated').textContent = timeStr;
+  document.getElementById('arbLastUpdated').textContent = timeStr;
+});
+
+// ============ RENDER PRICES TAB ============
+function renderPrices() {
+  const fiat = currentFiat;
+  const mode = currentMode;
+  const data = MOCK_DATA[fiat];
+  if (!data) return;
+
+  const typeData = data[mode];
+
+  // Best price summary
+  const bestRow = document.getElementById('bestPriceRow');
+  const exchanges = [
+    { key: 'binance', name: 'Binance', color: '#F0B90B' },
+    { key: 'bybit', name: 'Bybit', color: '#F7A600' },
+    { key: 'bingx', name: 'BingX', color: '#00D4AA' },
+  ];
+
+  bestRow.innerHTML = exchanges.map(ex => {
+    const best = getBestPrice(typeData[ex.key], mode);
+    return `
+      <div class="best-mini-card">
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+          <span class="exchange-dot" style="background:${ex.color}"></span>
+          <span class="exchange-name" style="color:${ex.color}">${ex.name}</span>
+        </div>
+        <div class="best-price" style="color:${mode === 'buy' ? '#FF5252' : '#00E676'}">${best ? formatPrice(best, fiat) : '—'}</div>
+        <div class="best-label">${mode === 'buy' ? 'Mejor compra' : 'Mejor venta'}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Exchange sections
+  const sectionsEl = document.getElementById('exchangeSections');
+  let html = '';
+
+  exchanges.forEach(ex => {
+    const ads = typeData[ex.key];
+    if (!ads || ads.length === 0) return;
+
+    html += `
+      <div class="section-header">
+        <span class="dot" style="background:${ex.color}"></span>
+        <h3>${ex.name}</h3>
+        <span class="count">${ads.length} anuncios</span>
+      </div>
+    `;
+
+    ads.forEach(ad => {
+      const priceClass = mode === 'buy' ? 'buy-price' : 'sell-price';
+      const badgeClass = ex.key === 'binance' ? 'badge-binance' : ex.key === 'bybit' ? 'badge-bybit' : 'badge-bingx';
+      const initials = ad.merchant.substring(0, 2).toUpperCase();
+
+      html += `
+        <div class="p2p-card">
+          <div class="p2p-card-top">
+            <div class="p2p-price-group">
+              <div class="p2p-price ${priceClass}">${formatPrice(ad.price, fiat)}</div>
+              <div class="p2p-fiat-label">${fiat}/USDT</div>
+            </div>
+            <span class="exchange-badge ${badgeClass}">${ex.name}</span>
+          </div>
+          <div class="p2p-merchant">
+            <div class="merchant-avatar">${initials}</div>
+            <span class="merchant-name">${ad.merchant}</span>
+            <span class="merchant-stats"><span class="merchant-rate">${ad.rate}%</span> · ${formatAmount(ad.orders)} órdenes</span>
+          </div>
+          <div class="p2p-details">
+            <div class="detail-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              <span>Disponible:</span>
+              <span class="detail-value">${formatAmount(ad.available)} USDT</span>
+            </div>
+            <div class="detail-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              <span>Límite:</span>
+              <span class="detail-value">${formatFiatRange(ad.min, ad.max, fiat)} ${fiat}</span>
+            </div>
+          </div>
+          <div class="payment-tags">
+            ${ad.payments.map(p => `<span class="payment-tag${p.includes('Bank') || p.includes('Banc') || p.includes('Transfer') ? ' bank' : ''}">${p}</span>`).join('')}
+          </div>
+        </div>
+      `;
+    });
+  });
+
+  sectionsEl.innerHTML = html;
+}
+
+// ============ RENDER ARBITRAGE TAB ============
+function renderArbitrage() {
+  const container = document.getElementById('arbCards');
+  let html = '';
+
+  ARBITRAGE_DATA.forEach(arb => {
+    const spreadBadge = arb.netSpread >= 1 ? 'badge-profit' : arb.netSpread >= 0.5 ? 'badge-low-profit' : 'badge-loss';
+    const riskClass = arb.risk === 'low' ? 'risk-low' : arb.risk === 'medium' ? 'risk-medium' : arb.risk === 'high' ? 'risk-high' : 'risk-very-high';
+
+    html += `
+      <div class="arb-card">
+        <div class="arb-card-header">
+          <span class="arb-pair">${arb.pair}</span>
+          <span class="arb-spread-badge ${spreadBadge}">+${arb.netSpread.toFixed(2)}% net</span>
+        </div>
+        <div class="arb-exchanges">
+          <div class="arb-exchange-box">
+            <div class="arb-type buy">▼ COMPRAR</div>
+            <div class="arb-exchange-name" style="color:${arb.buyColor}">${arb.buyExchange}</div>
+            <div class="arb-exchange-price">${arb.buyPrice}</div>
+          </div>
+          <div class="arb-arrow">
+            <svg class="arb-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <span class="arb-gross">${arb.grossSpread.toFixed(2)}%</span>
+          </div>
+          <div class="arb-exchange-box">
+            <div class="arb-type sell">▲ VENDER</div>
+            <div class="arb-exchange-name" style="color:${arb.sellColor}">${arb.sellExchange}</div>
+            <div class="arb-exchange-price">${arb.sellPrice}</div>
+          </div>
+        </div>
+        <div class="arb-footer">
+          <div class="arb-detail">
+            <span>Máx:</span>
+            <span class="value">${formatAmount(arb.maxTrade)} USDT</span>
+          </div>
+          <div class="arb-detail">
+            <span>Comisión:</span>
+            <span class="value">${arb.fees}</span>
+          </div>
+          <span class="risk-badge ${riskClass}">${arb.riskLabel}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+// ============ PROFIT FILTER ============
+document.getElementById('profitFilter').addEventListener('click', function() {
+  this.classList.toggle('active');
+});
+
+// ============ TIME CHIPS ============
+document.querySelectorAll('.time-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.time-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    drawChart();
+  });
+});
+
+// ============ DRAW CHART ============
+function drawChart() {
+  const canvas = document.getElementById('priceChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+  const padding = { top: 10, right: 10, bottom: 24, left: 40 };
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+
+  // Generate realistic price data
+  const basePrice = 36.50;
+  const points = 70;
+  const prices = [];
+  let price = basePrice - 1.3;
+  for (let i = 0; i < points; i++) {
+    price += (Math.random() - 0.45) * 0.15;
+    price = Math.max(35.20, Math.min(37.80, price));
+    prices.push(price);
+  }
+  // End near current price
+  prices[prices.length - 1] = 36.50;
+
+  const minP = Math.min(...prices) - 0.2;
+  const maxP = Math.max(...prices) + 0.2;
+
+  const bgColor = isLightTheme ? '#FFFFFF' : '#0D1117';
+  const lineColor = '#6C63FF';
+  const gridColor = isLightTheme ? '#E5E7EB' : '#1C2333';
+  const textColor = isLightTheme ? '#6B7280' : '#8B949E';
+
+  // Clear
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid lines
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  const gridLines = 4;
+  for (let i = 0; i <= gridLines; i++) {
+    const y = padding.top + (chartH / gridLines) * i;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(w - padding.right, y);
+    ctx.stroke();
+
+    // Y axis labels
+    const val = maxP - ((maxP - minP) / gridLines) * i;
+    ctx.fillStyle = textColor;
+    ctx.font = '9px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(val.toFixed(1), padding.left - 6, y + 3);
+  }
+
+  // X axis labels
+  const labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  labels.forEach((label, i) => {
+    const x = padding.left + (chartW / (labels.length - 1)) * i;
+    ctx.fillStyle = textColor;
+    ctx.font = '9px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x, h - 4);
+  });
+
+  // Price line
+  ctx.beginPath();
+  prices.forEach((p, i) => {
+    const x = padding.left + (chartW / (points - 1)) * i;
+    const y = padding.top + chartH - ((p - minP) / (maxP - minP)) * chartH;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Gradient fill
+  const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+  gradient.addColorStop(0, 'rgba(108, 99, 255, 0.25)');
+  gradient.addColorStop(0.5, 'rgba(108, 99, 255, 0.08)');
+  gradient.addColorStop(1, 'rgba(108, 99, 255, 0)');
+
+  ctx.lineTo(padding.left + chartW, padding.top + chartH);
+  ctx.lineTo(padding.left, padding.top + chartH);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Current price dot
+  const lastX = padding.left + chartW;
+  const lastY = padding.top + chartH - ((prices[prices.length - 1] - minP) / (maxP - minP)) * chartH;
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+  ctx.fillStyle = lineColor;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 7, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(108, 99, 255, 0.4)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// ============ SETTINGS INTERACTIVITY ============
+// Toggle switches
+document.querySelectorAll('.toggle-switch').forEach(toggle => {
+  toggle.addEventListener('click', function() {
+    this.classList.toggle('active');
+  });
+});
+
+// Sliders
+document.getElementById('refreshSlider').addEventListener('input', function() {
+  document.getElementById('refreshValue').textContent = this.value + 's';
+});
+document.getElementById('thresholdSlider').addEventListener('input', function() {
+  document.getElementById('thresholdValue').textContent = parseFloat(this.value).toFixed(1) + '%';
+});
+document.getElementById('cooldownSlider').addEventListener('input', function() {
+  document.getElementById('cooldownValue').textContent = this.value + 's';
+});
+
+// Settings fiat chips
+document.querySelectorAll('.settings-fiat-chip').forEach(chip => {
+  chip.addEventListener('click', function() {
+    this.classList.toggle('active');
+  });
+});
+
+// ============ INIT ============
+renderPrices();
+renderArbitrage();
+setTimeout(drawChart, 100);
+
+// Update timestamp
+function updateTimestamp() {
+  const now = new Date();
+  const timeStr = now.toLocaleString('es', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const el1 = document.getElementById('lastUpdated');
+  const el2 = document.getElementById('arbLastUpdated');
+  if (el1) el1.textContent = timeStr;
+  if (el2) el2.textContent = timeStr;
+}
+updateTimestamp();
+</script>
+</body>
+</html>
