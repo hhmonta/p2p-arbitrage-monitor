@@ -1,0 +1,40 @@
+name: p2p_arbitrage_monitor
+description: "P2P Arbitrage Monitor - Real-time price monitoring and arbitrage detection across Binance, Bybit, and BingX"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  
+  # HTTP & API
+  http: ^1.2.2
+  
+  # State Management
+  provider: ^6.1.2
+  
+  # Local Storage - using shared_preferences instead of sqflite to avoid NDK requirement
+  shared_preferences: ^2.3.4
+  
+  # Charts
+  fl_chart: ^0.69.2
+  
+  # CSV Export
+  csv: ^6.0.0
+  path_provider: ^2.1.5
+  share_plus: ^10.1.4
+  
+  # UI Utilities
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
