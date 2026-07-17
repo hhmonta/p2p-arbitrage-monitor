@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>P2P Arbitrage Monitor - Preview</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  :root {
+    --bg: #0D1117; --surface: #161B22; --card: #1C2333; --border: #30363D;
+    --text: #E6EDF3; --text-sec: #8B949E; --primary: #6C63FF; --accent: #00E676;
+    --danger: #FF5252; --warning: #FFD740; --info: #448AFF;
+    --binance: #F0B90B; --bybit: #F7A600; --bingx: #00D4AA;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--bg); color:var(--text); display:flex;
+    justify-content:center; align-items:center; min-height:100vh; padding:16px;
+  }
+
+  /* Phone frame */
+  .phone-frame {
+    width:390px; max-width:100%; height:844px; max-height:95vh;
+    background:var(--bg); border-radius:40px; border:3px solid #30363D;
+    overflow:hidden; display:flex; flex-direction:column; position:relative;
+    box-shadow:0 25px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.05);
+  }
+  .status-bar {
+    height:50px; padding:14px 24px 0; display:flex;
+    justify-content:space-between; align-items:center;
+    font-size:14px; font-weight:600; background:var(--surface);
+  }
+  .app-bar {
+    height:56px; padding:0 16px; display:flex; align-items:center;
+    justify-content:space-between; background:var(--surface); border-bottom:1px solid var(--border);
+  }
+  .app-bar-left { display:flex; align-items:center; gap:8px; }
+  .app-bar-title { font-size:18px; font-weight:600; }
+  .app-bar-actions { display:flex; gap:4px; }
+  .app-bar-btn {
+    width:36px; height:36px; border-radius:18px; border:none;
+    background:transparent; color:var(--text-sec); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:all 0.2s;
+  }
+  .app-bar-btn:hover { background:rgba(255,255,255,0.06); color:var(--text); }
+
+  .screen-content {
+    flex:1; overflow-y:auto; overflow-x:hidden;
+    scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+  }
+  .screen-content::-webkit-scrollbar { width:4px; }
+  .screen-content::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+  .tab-screen { display:none; }
+  .tab-screen.active { display:block; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    height:72px; background:var(--surface); border-top:1px solid var(--border);
+    display:flex; padding-bottom:12px;
+  }
+  .nav-item {
+    flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:3px; border:none; background:none;
+    color:var(--text-sec); cursor:pointer; transition:all 0.2s;
+    font-family:inherit; font-size:10px; font-weight:500;
+  }
+  .nav-item.active { color:var(--primary); }
+  .nav-item svg { width:22px; height:22px; }
+
+  /* Fiat chips */
+  .fiat-filters { display:flex; gap:6px; padding:10px 14px; overflow-x:auto; scrollbar-width:none; }
+  .fiat-filters::-webkit-scrollbar { display:none; }
+  .fiat-chip {
+    flex-shrink:0; padding:6px 14px; border-radius:20px;
+    border:1px solid var(--border); background:transparent;
+    color:var(--text-sec); font-size:13px; font-weight:500;
+    cursor:pointer; transition:all 0.2s; font-family:inherit;
+    display:flex; align-items:center; gap:4px;
+  }
+  .fiat-chip.active {
+    background:rgba(108,99,255,0.15); border-color:var(--primary);
+    color:var(--primary); font-weight:700;
+  }
+
+  /* Toggle */
+  .toggle-container { padding:4px 16px 8px; }
+  .toggle-group { display:flex; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+  .toggle-btn {
+    flex:1; padding:8px; border:none; font-family:inherit;
+    font-size:13px; font-weight:600; cursor:pointer;
+    transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .toggle-btn:first-child { border-right:1px solid var(--border); }
+  .toggle-btn.active { background:var(--primary); color:#fff; }
+  .toggle-btn:not(.active) { background:var(--card); color:var(--text-sec); }
+
+  /* Best price box */
+  .best-price-box {
+    margin:8px 16px; padding:14px; border-radius:16px;
+    background:rgba(108,99,255,0.08); border:1px solid rgba(108,99,255,0.2);
+  }
+  .best-price-title { font-size:13px; font-weight:600; color:var(--primary); margin-bottom:10px; }
+  .best-price-row { display:flex; gap:6px; }
+  .best-price-item { flex:1; padding:10px; border-radius:10px; text-align:center; }
+  .best-price-item.binance { background:rgba(240,185,11,0.08); border:1px solid rgba(240,185,11,0.2); }
+  .best-price-item.bybit { background:rgba(247,166,0,0.08); border:1px solid rgba(247,166,0,0.2); }
+  .best-price-item.bingx { background:rgba(0,212,170,0.08); border:1px solid rgba(0,212,170,0.2); }
+  .best-price-exchange { font-size:11px; font-weight:700; margin-bottom:4px; }
+  .best-price-item.binance .best-price-exchange { color:var(--binance); }
+  .best-price-item.bybit .best-price-exchange { color:var(--bybit); }
+  .best-price-item.bingx .best-price-exchange { color:var(--bingx); }
+  .best-price-value { font-size:18px; font-weight:800; color:var(--text); }
+  .best-price-fiat { font-size:10px; color:var(--text-sec); }
+
+  /* Exchange section */
+  .exchange-header { display:flex; align-items:center; padding:10px 18px 6px; gap:8px; }
+  .exchange-dot { width:4px; height:20px; border-radius:2px; }
+  .exchange-name { font-size:15px; font-weight:600; }
+  .exchange-count { margin-left:auto; font-size:12px; color:var(--text-sec); }
+
+  /* Price card */
+  .price-card {
+    margin:4px 16px; padding:14px; border-radius:12px;
+    background:var(--card); border:1px solid var(--border); transition:transform 0.15s;
+  }
+  .price-card:hover { transform:translateX(2px); }
+  .price-row { display:flex; align-items:center; }
+  .price-value { font-size:24px; font-weight:800; }
+  .price-value.buy { color:#FF5252; }
+  .price-value.sell { color:#00E676; }
+  .price-currency { font-size:12px; color:var(--text-sec); margin-left:4px; }
+  .price-badge {
+    margin-left:auto; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700;
+  }
+  .price-badge.binance { background:rgba(240,185,11,0.15); color:var(--binance); border:1px solid rgba(240,185,11,0.3); }
+  .price-badge.bybit { background:rgba(247,166,0,0.15); color:var(--bybit); border:1px solid rgba(247,166,0,0.3); }
+  .price-badge.bingx { background:rgba(0,212,170,0.15); color:var(--bingx); border:1px solid rgba(0,212,170,0.3); }
+  .merchant-row { display:flex; align-items:center; gap:4px; margin-top:8px; }
+  .merchant-name { font-size:12px; color:var(--text-sec); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .merchant-rate { font-size:11px; color:#00E676; }
+  .info-chips { display:flex; gap:10px; margin-top:8px; }
+  .info-chip { display:flex; align-items:center; gap:3px; font-size:11px; color:var(--text-sec); }
+  .payment-methods { display:flex; gap:4px; margin-top:8px; flex-wrap:wrap; }
+  .pm-tag { padding:2px 8px; border-radius:4px; font-size:10px; background:var(--surface); border:1px solid var(--border); color:var(--text-sec); }
+  .last-updated { text-align:center; padding:10px; font-size:11px; color:var(--text-sec); }
+
+  /* ===== ARBITRAGE ===== */
+  .filter-bar { padding:8px 14px; display:flex; align-items:center; gap:8px; }
+  .filter-select {
+    flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border);
+    background:var(--card); color:var(--text); font-size:13px; font-family:inherit;
+  }
+  .filter-chip {
+    padding:6px 12px; border-radius:8px; border:1px solid var(--border);
+    background:transparent; color:var(--text-sec); font-size:12px; font-weight:600;
+    cursor:pointer; font-family:inherit; transition:all 0.2s;
+  }
+  .filter-chip.active { background:rgba(0,230,118,0.15); border-color:var(--accent); color:var(--accent); }
+  .disclaimer-banner {
+    margin:4px 16px; padding:10px 12px; border-radius:8px;
+    background:rgba(255,152,0,0.06); border:1px solid rgba(255,152,0,0.2);
+    display:flex; align-items:flex-start; gap:8px; font-size:12px; color:rgba(255,152,0,0.9);
+  }
+  .arb-stats {
+    margin:8px 16px; padding:14px; border-radius:16px;
+    background:linear-gradient(135deg,rgba(108,99,255,0.08),rgba(0,230,118,0.08)); display:flex;
+  }
+  .arb-stat { flex:1; text-align:center; }
+  .arb-stat-icon { font-size:18px; margin-bottom:4px; }
+  .arb-stat-value { font-size:16px; font-weight:800; }
+  .arb-stat-label { font-size:10px; color:var(--text-sec); }
+  .arb-card {
+    margin:4px 16px; padding:14px; border-radius:12px;
+    background:var(--card); border:1.5px solid rgba(0,230,118,0.4); transition:transform 0.15s;
+  }
+  .arb-card:hover { transform:translateY(-1px); }
+  .arb-top { display:flex; align-items:center; }
+  .arb-pair { font-size:16px; font-weight:600; }
+  .arb-spread-badge { margin-left:auto; padding:6px 12px; border-radius:10px; text-align:center; }
+  .arb-spread-badge.profit { background:rgba(0,230,118,0.12); border:1px solid rgba(0,230,118,0.3); }
+  .arb-spread-badge.loss { background:rgba(255,82,82,0.12); border:1px solid rgba(255,82,82,0.3); }
+  .arb-spread-value { font-size:16px; font-weight:800; }
+  .arb-spread-badge.profit .arb-spread-value { color:var(--accent); }
+  .arb-spread-badge.loss .arb-spread-value { color:var(--danger); }
+  .arb-spread-label { font-size:9px; opacity:0.7; }
+  .arb-flow { display:flex; margin-top:12px; gap:6px; align-items:center; }
+  .arb-exchange-box { flex:1; padding:10px; border-radius:10px; }
+  .arb-exchange-box.buy-box { background:rgba(240,185,11,0.06); border:1px solid rgba(240,185,11,0.15); }
+  .arb-exchange-box.sell-box { background:rgba(0,212,170,0.06); border:1px solid rgba(0,212,170,0.15); }
+  .arb-dir { display:flex; align-items:center; gap:4px; font-size:10px; font-weight:700; margin-bottom:4px; }
+  .arb-exchange-name { font-size:13px; font-weight:600; }
+  .arb-exchange-price { font-size:20px; font-weight:800; }
+  .arb-exchange-avail { font-size:10px; color:var(--text-sec); }
+  .arb-arrow { text-align:center; }
+  .arb-arrow-icon { font-size:24px; color:var(--accent); }
+  .arb-arrow-spread { font-size:10px; font-weight:700; color:var(--accent); }
+  .arb-details { display:flex; margin-top:10px; gap:8px; }
+  .arb-detail { flex:1; }
+  .arb-detail-label { font-size:10px; color:var(--text-sec); }
+  .arb-detail-value { font-size:12px; font-weight:600; }
+  .arb-detail-value.low-risk { color:#00E676; }
+  .arb-detail-value.med-risk { color:#FF9100; }
+  .arb-detail-value.high-risk { color:#FF5252; }
+
+  /* ===== CAPTURE TAB (NEW) ===== */
+  .capture-header {
+    padding:12px 16px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .capture-title { font-size:16px; font-weight:700; }
+  .capture-live {
+    display:flex; align-items:center; gap:6px; font-size:12px;
+    color:var(--accent); font-weight:500;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .pulse-dot {
+    width:8px; height:8px; border-radius:4px; background:var(--accent);
+    animation:pulse 1.5s infinite;
+  }
+  .capture-fiats { display:flex; gap:6px; padding:0 16px 8px; }
+  .capture-fiat-btn {
+    padding:6px 14px; border-radius:8px; border:1px solid var(--border);
+    background:transparent; color:var(--text-sec); font-size:12px; font-weight:600;
+    cursor:pointer; font-family:inherit; transition:all 0.2s;
+  }
+  .capture-fiat-btn.active { background:rgba(108,99,255,0.15); border-color:var(--primary); color:var(--primary); }
+
+  .capture-summary {
+    margin:0 16px 8px; padding:12px; border-radius:12px;
+    background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.15);
+    display:flex;
+  }
+  .capture-summary-item { flex:1; text-align:center; }
+  .capture-summary-value { font-size:18px; font-weight:800; }
+  .capture-summary-value.buy-val { color:#FF5252; }
+  .capture-summary-value.sell-val { color:#00E676; }
+  .capture-summary-label { font-size:10px; color:var(--text-sec); margin-top:2px; }
+  .capture-summary-change { font-size:11px; font-weight:600; margin-top:2px; }
+  .capture-summary-change.up { color:#00E676; }
+  .capture-summary-change.down { color:#FF5252; }
+
+  /* Hourly log table */
+  .hourly-log { padding:0 16px 80px; }
+  .hourly-log-header {
+    display:grid; grid-template-columns:70px 1fr 1fr 60px;
+    padding:8px 12px; font-size:11px; font-weight:700;
+    color:var(--text-sec); text-transform:uppercase; letter-spacing:0.5px;
+    border-bottom:1px solid var(--border);
+  }
+  .hourly-row {
+    display:grid; grid-template-columns:70px 1fr 1fr 60px;
+    padding:10px 12px; border-bottom:0.5px solid rgba(48,54,61,0.5);
+    font-size:13px; align-items:center; transition:background 0.15s;
+  }
+  .hourly-row:hover { background:rgba(108,99,255,0.04); }
+  .hourly-time { color:var(--text-sec); font-weight:500; font-size:12px; }
+  .hourly-buy { color:#FF5252; font-weight:600; }
+  .hourly-sell { color:#00E676; font-weight:600; }
+  .hourly-change { font-size:11px; font-weight:700; text-align:right; }
+  .hourly-change.up { color:#00E676; }
+  .hourly-change.down { color:#FF5252; }
+  .hourly-change.neutral { color:var(--text-sec); }
+
+  .capture-export { padding:8px 16px 16px; display:flex; gap:8px; }
+  .capture-export-btn {
+    flex:1; padding:10px; border-radius:10px; border:1px solid var(--border);
+    background:transparent; color:var(--text-sec); font-size:12px; font-weight:600;
+    cursor:pointer; font-family:inherit; display:flex; align-items:center;
+    justify-content:center; gap:6px; transition:all 0.2s;
+  }
+  .capture-export-btn:hover { border-color:var(--primary); color:var(--primary); }
+  .capture-export-btn.recording {
+    border-color:var(--danger); color:var(--danger);
+    background:rgba(255,82,82,0.06);
+  }
+
+  /* ===== HISTORY ===== */
+  .history-filters { padding:10px 14px; }
+  .history-row { display:flex; gap:6px; margin-bottom:8px; }
+  .history-select {
+    flex:1; padding:7px 10px; border-radius:8px; border:1px solid var(--border);
+    background:var(--card); color:var(--text); font-size:12px; font-family:inherit;
+  }
+  .time-range-row { display:flex; gap:4px; }
+  .time-chip {
+    flex:1; padding:6px; border-radius:8px; border:1px solid var(--border);
+    background:transparent; color:var(--text-sec); font-size:12px; font-weight:500;
+    cursor:pointer; font-family:inherit; transition:all 0.2s; text-align:center;
+  }
+  .time-chip.active { background:rgba(108,99,255,0.15); border-color:var(--primary); color:var(--primary); }
+  .chart-container {
+    margin:8px 16px; padding:14px; border-radius:16px;
+    background:var(--card); border:1px solid var(--border);
+  }
+  .chart-header { display:flex; align-items:center; gap:6px; margin-bottom:12px; }
+  .chart-title { font-size:14px; font-weight:600; }
+  .chart-points { margin-left:auto; font-size:11px; color:var(--text-sec); }
+  .chart-area { height:200px; position:relative; border-radius:8px; overflow:hidden; }
+  .chart-canvas { width:100%; height:100%; }
+  .stats-row { margin:8px 16px; padding:12px; border-radius:12px; background:var(--card); display:flex; }
+  .stat-item { flex:1; text-align:center; }
+  .stat-value { font-size:13px; font-weight:700; }
+  .stat-label { font-size:10px; color:var(--text-sec); }
+  .export-row { padding:8px 16px; display:flex; gap:8px; }
+  .export-btn {
+    flex:1; padding:8px; border-radius:8px; border:1px solid var(--border);
+    background:transparent; color:var(--text-sec); font-size:12px;
+    cursor:pointer; font-family:inherit; display:flex; align-items:center;
+    justify-content:center; gap:4px; transition:all 0.2s;
+  }
+  .export-btn:hover { border-color:var(--primary); color:var(--primary); }
+
+  /* ===== SETTINGS ===== */
+  .settings-header { display:flex; align-items:center; gap:8px; padding:16px 16px 8px; }
+  .settings-header-icon { color:var(--primary); font-size:18px; }
+  .settings-header-text { font-size:14px; font-weight:600; color:var(--primary); }
+  .settings-section { padding:0 16px; }
+  .settings-item { padding:12px 0; border-bottom:0.5px solid var(--border); }
+  .settings-item-row { display:flex; align-items:center; }
+  .settings-item-title { font-size:14px; font-weight:500; }
+  .settings-item-subtitle { font-size:12px; color:var(--text-sec); }
+  .settings-slider {
+    width:140px; margin-left:auto; -webkit-appearance:none;
+    height:4px; border-radius:2px; background:var(--border); outline:none;
+  }
+  .settings-slider::-webkit-slider-thumb {
+    -webkit-appearance:none; width:16px; height:16px;
+    border-radius:8px; background:var(--primary); cursor:pointer;
+  }
+  .toggle-switch {
+    margin-left:auto; width:44px; height:24px; border-radius:12px;
+    background:var(--border); position:relative; cursor:pointer; transition:background 0.2s;
+  }
+  .toggle-switch.on { background:var(--primary); }
+  .toggle-switch::after {
+    content:''; position:absolute; width:20px; height:20px;
+    border-radius:10px; background:white; top:2px; left:2px; transition:transform 0.2s;
+  }
+  .toggle-switch.on::after { transform:translateX(20px); }
+  .fiat-chips-row { display:flex; flex-wrap:wrap; gap:6px; padding:8px 0; }
+  .fiat-setting-chip {
+    padding:5px 12px; border-radius:6px; border:1px solid var(--border);
+    background:transparent; color:var(--text-sec); font-size:12px;
+    cursor:pointer; font-family:inherit; transition:all 0.2s;
+  }
+  .fiat-setting-chip.active { background:rgba(108,99,255,0.15); border-color:var(--primary); color:var(--primary); }
+  .api-status-row { display:flex; align-items:center; padding:4px 0; }
+  .api-dot { width:8px; height:8px; border-radius:4px; margin-right:8px; }
+  .api-dot.online { background:#00E676; }
+  .api-dot.offline { background:#FF5252; }
+  .api-name { font-size:13px; font-weight:500; flex:1; }
+  .api-status { font-size:11px; }
+  .api-status.online { color:#00E676; }
+  .api-status.offline { color:#FF5252; }
+  .risk-box {
+    margin:8px 0; padding:12px; border-radius:8px;
+    background:rgba(255,82,82,0.04); border:1px solid rgba(255,82,82,0.15);
+    font-size:11px; color:rgba(255,82,82,0.85); line-height:1.5;
+  }
+  .api-limits-box {
+    margin:8px 0; padding:12px; border-radius:8px;
+    background:rgba(255,152,0,0.04); border:1px solid rgba(255,152,0,0.15);
+    font-size:11px; color:rgba(255,152,0,0.85); line-height:1.5;
+  }
+  .settings-divider { height:1px; background:var(--border); margin:8px 16px; }
+
+  .live-dot {
+    width:6px; height:6px; border-radius:3px; background:var(--accent);
+    animation:pulse 2s infinite; display:inline-block; margin-right:6px;
+  }
+
+  @media (max-width:420px) {
+    body { padding:0; }
+    .phone-frame { border-radius:0; border:none; height:100vh; max-height:100vh; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="status-bar">
+    <span>9:41</span>
+    <span style="display:flex;gap:4px;align-items:center;">
+      <span style="font-size:12px;">5G</span>
+      <span style="font-size:14px;">🔋</span>
+    </span>
+  </div>
+
+  <div class="app-bar">
+    <div class="app-bar-left">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+        <polyline points="16 7 22 7 22 13"/>
+      </svg>
+      <span class="app-bar-title">P2P Monitor</span>
+      <span class="live-dot"></span>
+    </div>
+    <div class="app-bar-actions">
+      <button class="app-bar-btn" onclick="refreshData()" title="Actualizar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
+      <button class="app-bar-btn" onclick="toggleTheme()" title="Tema">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="theme-icon">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="screen-content">
+
+    <!-- ===== PRECIOS ===== -->
+    <div class="tab-screen active" id="tab-precios">
+      <div class="fiat-filters" id="fiat-filters"></div>
+      <div class="toggle-container">
+        <div class="toggle-group">
+          <button class="toggle-btn active" onclick="setTradeType('buy',this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+            Comprar USDT
+          </button>
+          <button class="toggle-btn" onclick="setTradeType('sell',this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7 7 7-7"/></svg>
+            Vender USDT
+          </button>
+        </div>
+      </div>
+      <div id="best-price-box" class="best-price-box"></div>
+      <div id="price-list"></div>
+      <div class="last-updated" id="last-updated">Última actualización: --:--:--</div>
+    </div>
+
+    <!-- ===== ARBITRAJE ===== -->
+    <div class="tab-screen" id="tab-arbitraje">
+      <div class="filter-bar">
+        <select class="filter-select" id="arb-fiat-filter">
+          <option value="all">Todas las monedas</option>
+          <option value="VES">🇻🇪 VES</option>
+          <option value="ARS">🇦🇷 ARS</option>
+          <option value="COP">🇨🇴 COP</option>
+          <option value="MXN">🇲🇽 MXN</option>
+        </select>
+        <button class="filter-chip active" onclick="this.classList.toggle('active')">Rentable</button>
+      </div>
+      <div class="disclaimer-banner">
+        <span>⚠️</span>
+        <span>Las oportunidades son estimaciones. Costos de transferencia y tiempos pueden afectar rentabilidad real.</span>
+      </div>
+      <div class="arb-stats">
+        <div class="arb-stat">
+          <div class="arb-stat-icon">📋</div>
+          <div class="arb-stat-value" id="arb-total">0</div>
+          <div class="arb-stat-label">Total</div>
+        </div>
+        <div class="arb-stat">
+          <div class="arb-stat-icon">📈</div>
+          <div class="arb-stat-value" id="arb-profitable">0</div>
+          <div class="arb-stat-label">Rentables</div>
+        </div>
+        <div class="arb-stat">
+          <div class="arb-stat-icon">⭐</div>
+          <div class="arb-stat-value" id="arb-best">--</div>
+          <div class="arb-stat-label">Mejor spread</div>
+        </div>
+      </div>
+      <div id="arb-list"></div>
+    </div>
+
+    <!-- ===== CAPTURA HORARIA (NEW) ===== -->
+    <div class="tab-screen" id="tab-captura">
+      <div class="capture-header">
+        <span class="capture-title">📊 Captura Horaria</span>
+        <div class="capture-live">
+          <span class="pulse-dot"></span>
+          Grabando cada hora
+        </div>
+      </div>
+
+      <div class="capture-fiats" id="capture-fiats"></div>
+
+      <div class="capture-summary" id="capture-summary"></div>
+
+      <div class="hourly-log">
+        <div class="hourly-log-header">
+          <span>Hora</span>
+          <span style="color:#FF5252">Compra</span>
+          <span style="color:#00E676">Venta</span>
+          <span style="text-align:right">Spread</span>
+        </div>
+        <div id="hourly-rows"></div>
+      </div>
+
+      <div class="capture-export">
+        <button class="capture-export-btn recording" id="capture-toggle" onclick="toggleCapture()">
+          <span class="pulse-dot"></span>
+          Detener captura
+        </button>
+        <button class="capture-export-btn" onclick="exportCapture()">📥 Exportar CSV</button>
+        <button class="capture-export-btn" onclick="clearCapture()">🗑️ Limpiar</button>
+      </div>
+    </div>
+
+    <!-- ===== HISTORIAL ===== -->
+    <div class="tab-screen" id="tab-historial">
+      <div class="history-filters">
+        <div class="history-row">
+          <select class="history-select" id="hist-exchange">
+            <option>🟡 Binance</option>
+            <option>🟠 Bybit</option>
+            <option>🟢 BingX</option>
+          </select>
+          <select class="history-select" id="hist-fiat">
+            <option>🇻🇪 VES</option>
+            <option>🇦🇷 ARS</option>
+            <option>🇨🇴 COP</option>
+            <option>🇲🇽 MXN</option>
+          </select>
+          <select class="history-select">
+            <option>Compra</option>
+            <option>Venta</option>
+          </select>
+        </div>
+        <div class="time-range-row">
+          <button class="time-chip" onclick="setTimeRange(this)">24h</button>
+          <button class="time-chip" onclick="setTimeRange(this)">3 días</button>
+          <button class="time-chip active" onclick="setTimeRange(this)">7 días</button>
+          <button class="time-chip" onclick="setTimeRange(this)">30 días</button>
+        </div>
+      </div>
+      <div class="chart-container">
+        <div class="chart-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF5252" stroke-width="2.5"><path d="M23 6l-9.5 9.5-5-5L1 18"/></svg>
+          <span class="chart-title">Compra USDT/VES</span>
+          <span class="chart-points">168 puntos</span>
+        </div>
+        <div class="chart-area">
+          <canvas id="price-chart" class="chart-canvas"></canvas>
+        </div>
+      </div>
+      <div class="stats-row" id="hist-stats"></div>
+      <div class="export-row">
+        <button class="export-btn">📥 Exportar CSV</button>
+        <button class="export-btn">📤 Compartir</button>
+        <button class="export-btn">🧹 Limpiar</button>
+      </div>
+    </div>
+
+    <!-- ===== AJUSTES ===== -->
+    <div class="tab-screen" id="tab-ajustes">
+      <div class="settings-header"><span class="settings-header-icon">🔄</span><span class="settings-header-text">Actualización</span></div>
+      <div class="settings-section">
+        <div class="settings-item"><div class="settings-item-row">
+          <div><div class="settings-item-title">Intervalo de actualización</div><div class="settings-item-subtitle">15 segundos</div></div>
+          <input type="range" class="settings-slider" min="10" max="60" value="15">
+        </div></div>
+        <div class="settings-item"><div class="settings-item-row">
+          <div><div class="settings-item-title">Auto-actualización</div><div class="settings-item-subtitle">Actualizar precios automáticamente</div></div>
+          <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+        </div></div>
+        <div class="settings-item"><div class="settings-item-row">
+          <div><div class="settings-item-title">Captura horaria</div><div class="settings-item-subtitle">Registrar precios cada hora</div></div>
+          <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+        </div></div>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-header"><span class="settings-header-icon">🔔</span><span class="settings-header-text">Notificaciones</span></div>
+      <div class="settings-section">
+        <div class="settings-item"><div class="settings-item-row">
+          <div><div class="settings-item-title">Alertas de arbitraje</div></div>
+          <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+        </div></div>
+        <div class="settings-item"><div class="settings-item-row">
+          <div><div class="settings-item-title">Umbral de spread mínimo</div><div class="settings-item-subtitle">1.0%</div></div>
+          <input type="range" class="settings-slider" min="1" max="100" value="10">
+        </div></div>
+        <div class="settings-item"><div class="settings-item-row">
+          <div><div class="settings-item-title">Sonido</div></div>
+          <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+        </div></div>
+        <div class="settings-item"><div class="settings-item-row">
+          <div><div class="settings-item-title">Vibración</div></div>
+          <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+        </div></div>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-header"><span class="settings-header-icon">💱</span><span class="settings-header-text">Monedas fiat</span></div>
+      <div class="settings-section"><div class="fiat-chips-row" id="settings-fiats"></div></div>
+      <div class="settings-divider"></div>
+      <div class="settings-header"><span class="settings-header-icon">☁️</span><span class="settings-header-text">Estado de APIs</span></div>
+      <div class="settings-section">
+        <div class="api-status-row"><div class="api-dot online"></div><div class="api-name" style="color:var(--binance)">Binance</div><div class="api-status online">Disponible</div></div>
+        <div class="api-status-row"><div class="api-dot online"></div><div class="api-name" style="color:var(--bybit)">Bybit</div><div class="api-status online">Disponible</div></div>
+        <div class="api-status-row"><div class="api-dot offline"></div><div class="api-name" style="color:var(--bingx)">BingX</div><div class="api-status offline">No disponible</div></div>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-header"><span class="settings-header-icon">ℹ️</span><span class="settings-header-text">Acerca de</span></div>
+      <div class="settings-section">
+        <div class="risk-box">⚠️ RIESGO: El arbitraje P2P implica riesgos significativos incluyendo volatilidad de precios, riesgo de contraparte, retrasos en transferencias y fluctuaciones de tipo de cambio. Las oportunidades mostradas pueden no ser realizables. Esta app es solo para fines informativos y no constituye asesoramiento financiero. Opera bajo tu propio riesgo.</div>
+        <div class="api-limits-box">NOTA: Las APIs P2P son endpoints no oficiales. Pueden cambiar sin aviso, tener rate limits o requerir autenticación. BingX requiere header firmado para acceso.</div>
+        <div class="settings-item"><div class="settings-item-row">
+          <div><div class="settings-item-title">P2P Arbitrage Monitor v1.0.0</div><div class="settings-item-subtitle">Monitor de precios P2P y detector de arbitraje</div></div>
+        </div></div>
+      </div>
+      <div style="height:40px;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav (5 tabs) -->
+  <div class="bottom-nav">
+    <button class="nav-item active" onclick="switchTab('precios',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Precios
+    </button>
+    <button class="nav-item" onclick="switchTab('arbitraje',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      Arbitraje
+    </button>
+    <button class="nav-item" onclick="switchTab('captura',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Captura
+    </button>
+    <button class="nav-item" onclick="switchTab('historial',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Historial
+    </button>
+    <button class="nav-item" onclick="switchTab('ajustes',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Ajustes
+    </button>
+  </div>
+</div>
+
+<script>
+// ===== REALISTIC PRICES (July 2026 estimates) =====
+const FIATS = ['VES','ARS','COP','MXN','BRL','CLP','PEN','USD'];
+const FIAT_FLAGS = {VES:'🇻🇪',ARS:'🇦🇷',COP:'🇨🇴',MXN:'🇲🇽',BRL:'🇧🇷',CLP:'🇨🇱',PEN:'🇵🇪',USD:'🇺🇸'};
+const EXCHANGES = ['Binance','Bybit','BingX'];
+const EXCHANGE_CLASSES = {Binance:'binance',Bybit:'bybit',BingX:'bingx'};
+const EXCHANGE_COLORS = {Binance:'var(--binance)',Bybit:'var(--bybit)',BingX:'var(--bingx)'};
+
+// Updated VES price: ~82-85 Bs per USDT (realistic July 2026)
+const PRICE_DATA = {
+  VES:  { Binance:{buy:82.45,sell:83.90}, Bybit:{buy:82.10,sell:84.15}, BingX:{buy:82.80,sell:83.50} },
+  ARS:  { Binance:{buy:1245.0,sell:1258.0}, Bybit:{buy:1248.5,sell:1262.0}, BingX:{buy:1240.0,sell:1255.0} },
+  COP:  { Binance:{buy:4150.0,sell:4185.0}, Bybit:{buy:4145.0,sell:4190.0}, BingX:{buy:4155.0,sell:4178.0} },
+  MXN:  { Binance:{buy:19.42,sell:19.68}, Bybit:{buy:19.38,sell:19.65}, BingX:{buy:19.45,sell:19.58} },
+  BRL:  { Binance:{buy:5.62,sell:5.71}, Bybit:{buy:5.60,sell:5.73}, BingX:{buy:5.64,sell:5.68} },
+  CLP:  { Binance:{buy:940.0,sell:952.0}, Bybit:{buy:938.0,sell:955.0}, BingX:{buy:942.0,sell:950.0} },
+  PEN:  { Binance:{buy:3.72,sell:3.78}, Bybit:{buy:3.71,sell:3.79}, BingX:{buy:3.73,sell:3.76} },
+  USD:  { Binance:{buy:1.001,sell:1.005}, Bybit:{buy:1.000,sell:1.006}, BingX:{buy:1.002,sell:1.004} },
+};
+
+const MERCHANTS = {
+  Binance:['CarlosVE','BinanceKing','CryptoPro99','VENTrader','FastP2P'],
+  Bybit:['MariaExchange','BybitPro','LatamCrypto','QuickTrade','P2PMaster'],
+  BingX:['PedroBingX','BingXTrade','SouthP2P','CryptoFlow','EasyTrade'],
+};
+const PAYMENTS = {
+  VES:['Pago Móvil','Banesco','Mercantil','Provincial','Zelle'],
+  ARS:['Mercado Pago','Banco Nación','Galicia','Wise'],
+  COP:['Nequi','Bancolombia','Daviplata','Wise'],
+  MXN:['SPEI','BBVA','Banorte','Wise'],
+  BRL:['Pix','Itaú','Bradesco','Wise'],
+  CLP:['Transferencia','BancoEstado','Wise'],
+  PEN:['Yape','Plin','BCP','Wise'],
+  USD:['Zelle','Wise','Bank Transfer'],
+};
+
+let currentFiat = 'VES';
+let tradeType = 'buy';
+let captureFiat = 'VES';
+let isCapturing = true;
+
+// ===== HOURLY CAPTURE DATA =====
+// Generate 24h of realistic hourly data
+function generateHourlyData(fiat) {
+  const data = [];
+  const baseBuy = PRICE_DATA[fiat].Binance.buy;
+  const baseSell = PRICE_DATA[fiat].Binance.sell;
+  const now = new Date();
+
+  for (let i = 23; i >= 0; i--) {
+    const time = new Date(now - i * 3600000);
+    const hourStr = time.getHours().toString().padStart(2,'0') + ':00';
+    const dateStr = time.toLocaleDateString('es',{day:'2-digit',month:'short'});
+    const drift = (Math.random()-0.48) * baseBuy * 0.025; // slight upward drift
+    const buy = baseBuy + drift + (i * baseBuy * -0.001); // slight uptrend toward now
+    const sell = buy + (baseSell - baseBuy) * (0.8 + Math.random()*0.4);
+    const prevBuy = data.length > 0 ? data[data.length-1].buy : buy;
+    const change = ((buy - prevBuy) / prevBuy * 100);
+    data.push({
+      time: hourStr,
+      date: dateStr,
+      buy: buy,
+      sell: sell,
+      change: change,
+      spread: ((sell - buy) / buy * 100),
+    });
+  }
+  return data;
+}
+
+let hourlyData = {};
+FIATS.forEach(f => hourlyData[f] = generateHourlyData(f));
+
+// ===== INIT =====
+function init() {
+  renderFiatFilters();
+  renderSettingsFiats();
+  renderPrices();
+  renderArbitrage();
+  renderCaptureFiats();
+  renderCapture();
+  drawChart();
+  renderHistStats();
+  updateTime();
+}
+
+// ===== TAB NAV =====
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'historial') setTimeout(drawChart, 50);
+  if (name === 'captura') renderCapture();
+}
+
+// ===== FIAT FILTERS =====
+function renderFiatFilters() {
+  document.getElementById('fiat-filters').innerHTML = FIATS.map(f =>
+    `<button class="fiat-chip ${f===currentFiat?'active':''}" onclick="selectFiat('${f}',this)">${FIAT_FLAGS[f]} ${f}</button>`
+  ).join('');
+}
+function selectFiat(f, btn) {
+  currentFiat = f;
+  document.querySelectorAll('#fiat-filters .fiat-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderPrices();
+}
+
+// ===== TRADE TYPE =====
+function setTradeType(type, btn) {
+  tradeType = type;
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPrices();
+}
+
+// ===== FORMAT =====
+function fmtPrice(p, fiat) {
+  if (p >= 10000) return p.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (p >= 100) return p.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (p >= 1) return p.toFixed(2);
+  return p.toFixed(4);
+}
+
+// ===== PRICES =====
+function renderPrices() {
+  const data = PRICE_DATA[currentFiat];
+  document.getElementById('best-price-box').innerHTML = `
+    <div class="best-price-title">Mejores precios ${currentFiat}/USDT</div>
+    <div class="best-price-row">
+      ${EXCHANGES.map(ex => {
+        const p = tradeType==='buy' ? data[ex].buy : data[ex].sell;
+        return `<div class="best-price-item ${EXCHANGE_CLASSES[ex]}">
+          <div class="best-price-exchange">${ex}</div>
+          <div class="best-price-value">${fmtPrice(p)}</div>
+          <div class="best-price-fiat">${currentFiat}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  let html = '';
+  EXCHANGES.forEach(ex => {
+    const price = tradeType==='buy' ? data[ex].buy : data[ex].sell;
+    const merchants = MERCHANTS[ex];
+    const payments = PAYMENTS[currentFiat]||PAYMENTS.USD;
+    html += `<div class="exchange-header">
+      <div class="exchange-dot" style="background:${EXCHANGE_COLORS[ex]}"></div>
+      <span class="exchange-name" style="color:${EXCHANGE_COLORS[ex]}">${ex}</span>
+      <span class="exchange-count">5 anuncios</span>
+    </div>`;
+    for (let i=0;i<3;i++) {
+      const pVar = price*(1+(Math.random()-0.5)*0.015);
+      const avail = (Math.random()*3000+500).toFixed(0);
+      const minA = (Math.random()*50+10).toFixed(0);
+      const maxA = (Math.random()*5000+500).toFixed(0);
+      const rate = (95+Math.random()*5).toFixed(1);
+      const orders = Math.floor(Math.random()*300+10);
+      html += `<div class="price-card">
+        <div class="price-row">
+          <span class="price-value ${tradeType}">${fmtPrice(pVar)}</span>
+          <span class="price-currency">${currentFiat}</span>
+          <span class="price-badge ${EXCHANGE_CLASSES[ex]}">${ex}</span>
+        </div>
+        <div class="merchant-row">
+          <span style="font-size:14px;color:var(--text-sec)">👤</span>
+          <span class="merchant-name">${merchants[i%merchants.length]}</span>
+          <span class="merchant-rate">✓ ${rate}%</span>
+          <span style="font-size:11px;color:var(--text-sec);margin-left:8px">${orders} órdenes</span>
+        </div>
+        <div class="info-chips">
+          <span class="info-chip">💼 ${avail} USDT</span>
+          <span class="info-chip">🔄 ${minA} - ${maxA} ${currentFiat}</span>
+        </div>
+        <div class="payment-methods">
+          ${payments.slice(0,3).map(p=>`<span class="pm-tag">${p}</span>`).join('')}
+        </div>
+      </div>`;
+    }
+  });
+  document.getElementById('price-list').innerHTML = html;
+}
+
+// ===== ARBITRAGE =====
+function renderArbitrage() {
+  const opps = [];
+  ['VES','ARS','COP','MXN'].forEach(fiat => {
+    const d = PRICE_DATA[fiat];
+    EXCHANGES.forEach((buyEx,i) => {
+      EXCHANGES.forEach((sellEx,j) => {
+        if(i>=j) return;
+        const bp=d[buyEx].buy, sp=d[sellEx].sell;
+        const spread=((sp-bp)/bp)*100, net=spread-0.5;
+        if(spread>0) opps.push({buyEx,sellEx,fiat,buyPrice:bp,sellPrice:sp,spread,net,buyAvail:(Math.random()*2000+500).toFixed(0),sellAvail:(Math.random()*2000+500).toFixed(0)});
+        const bp2=d[sellEx].buy, sp2=d[buyEx].sell;
+        const spread2=((sp2-bp2)/bp2)*100, net2=spread2-0.5;
+        if(spread2>0) opps.push({buyEx:sellEx,sellEx:buyEx,fiat,buyPrice:bp2,sellPrice:sp2,spread:spread2,net:net2,buyAvail:(Math.random()*2000+500).toFixed(0),sellAvail:(Math.random()*2000+500).toFixed(0)});
+      });
+    });
+  });
+  opps.sort((a,b)=>b.net-a.net);
+  const profitable = opps.filter(o=>o.net>0);
+  document.getElementById('arb-total').textContent = opps.length;
+  document.getElementById('arb-profitable').textContent = profitable.length;
+  document.getElementById('arb-best').textContent = profitable.length>0?`+${profitable[0].net.toFixed(2)}%`:'--';
+
+  document.getElementById('arb-list').innerHTML = opps.slice(0,8).map(o => {
+    const risk = o.spread>3?'high':o.spread>1.5?'med':'low';
+    const riskText = o.spread>3?'Alto':o.spread>1.5?'Medio':'Bajo';
+    const riskClass = risk==='high'?'high-risk':risk==='med'?'med-risk':'low-risk';
+    return `<div class="arb-card">
+      <div class="arb-top">
+        <span class="arb-pair">${FIAT_FLAGS[o.fiat]} ${o.fiat}/USDT</span>
+        <div class="arb-spread-badge ${o.net>0?'profit':'loss'}">
+          <div class="arb-spread-value">${o.net>0?'+':''}${o.net.toFixed(2)}%</div>
+          <div class="arb-spread-label">Neto</div>
+        </div>
+      </div>
+      <div class="arb-flow">
+        <div class="arb-exchange-box buy-box">
+          <div class="arb-dir" style="color:${EXCHANGE_COLORS[o.buyEx]}">⬇ COMPRAR</div>
+          <div class="arb-exchange-name">${o.buyEx}</div>
+          <div class="arb-exchange-price">${fmtPrice(o.buyPrice)}</div>
+          <div class="arb-exchange-avail">${o.buyAvail} USDT</div>
+        </div>
+        <div class="arb-arrow"><div class="arb-arrow-icon">⇄</div><div class="arb-arrow-spread">+${o.spread.toFixed(2)}%</div></div>
+        <div class="arb-exchange-box sell-box">
+          <div class="arb-dir" style="color:${EXCHANGE_COLORS[o.sellEx]};justify-content:flex-end">VENDER ⬆</div>
+          <div class="arb-exchange-name" style="text-align:right">${o.sellEx}</div>
+          <div class="arb-exchange-price" style="text-align:right">${fmtPrice(o.sellPrice)}</div>
+          <div class="arb-exchange-avail" style="text-align:right">${o.sellAvail} USDT</div>
+        </div>
+      </div>
+      <div class="arb-details">
+        <div class="arb-detail"><div class="arb-detail-label">Máx. operable</div><div class="arb-detail-value">${Math.min(+o.buyAvail,+o.sellAvail)} USDT</div></div>
+        <div class="arb-detail"><div class="arb-detail-label">Comisiones est.</div><div class="arb-detail-value">~0.5%</div></div>
+        <div class="arb-detail"><div class="arb-detail-label">Riesgo</div><div class="arb-detail-value ${riskClass}">${riskText}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== CAPTURE TAB =====
+function renderCaptureFiats() {
+  document.getElementById('capture-fiats').innerHTML = FIATS.map(f =>
+    `<button class="capture-fiat-btn ${f===captureFiat?'active':''}" onclick="setCaptureFiat('${f}',this)">${FIAT_FLAGS[f]} ${f}</button>`
+  ).join('');
+}
+function setCaptureFiat(f, btn) {
+  captureFiat = f;
+  document.querySelectorAll('.capture-fiat-btn').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  renderCapture();
+}
+
+function renderCapture() {
+  const data = hourlyData[captureFiat] || [];
+  const latest = data[data.length-1];
+  const prev = data.length>1 ? data[data.length-2] : latest;
+  const buyChange = ((latest.buy-prev.buy)/prev.buy*100);
+  const sellChange = ((latest.sell-prev.sell)/prev.sell*100);
+
+  document.getElementById('capture-summary').innerHTML = `
+    <div class="capture-summary-item">
+      <div class="capture-summary-value buy-val">${fmtPrice(latest.buy)}</div>
+      <div class="capture-summary-label">Compra ${captureFiat}</div>
+      <div class="capture-summary-change ${buyChange>=0?'up':'down'}">${buyChange>=0?'▲':'▼'} ${Math.abs(buyChange).toFixed(2)}%</div>
+    </div>
+    <div class="capture-summary-item">
+      <div class="capture-summary-value sell-val">${fmtPrice(latest.sell)}</div>
+      <div class="capture-summary-label">Venta ${captureFiat}</div>
+      <div class="capture-summary-change ${sellChange>=0?'up':'down'}">${sellChange>=0?'▲':'▼'} ${Math.abs(sellChange).toFixed(2)}%</div>
+    </div>
+    <div class="capture-summary-item">
+      <div class="capture-summary-value" style="color:var(--primary)">${latest.spread.toFixed(2)}%</div>
+      <div class="capture-summary-label">Spread</div>
+      <div class="capture-summary-change up">${data.length} registros</div>
+    </div>
+  `;
+
+  // Render hourly rows (newest first)
+  const rows = [...data].reverse();
+  document.getElementById('hourly-rows').innerHTML = rows.map((r, idx) => {
+    const changeClass = r.change > 0.01 ? 'up' : r.change < -0.01 ? 'down' : 'neutral';
+    const changeIcon = r.change > 0.01 ? '▲' : r.change < -0.01 ? '▼' : '–';
+    const isLatest = idx === 0;
+    return `<div class="hourly-row" style="${isLatest?'background:rgba(108,99,255,0.06)':''}">
+      <span class="hourly-time">${r.date} ${r.time}${isLatest?' <span style="color:var(--primary);font-size:9px;font-weight:700">AHORA</span>':''}</span>
+      <span class="hourly-buy">${fmtPrice(r.buy)}</span>
+      <span class="hourly-sell">${fmtPrice(r.sell)}</span>
+      <span class="hourly-change ${changeClass}">${changeIcon} ${Math.abs(r.change).toFixed(2)}%</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleCapture() {
+  isCapturing = !isCapturing;
+  const btn = document.getElementById('capture-toggle');
+  if (isCapturing) {
+    btn.innerHTML = '<span class="pulse-dot"></span> Detener captura';
+    btn.classList.add('recording');
+  } else {
+    btn.innerHTML = '▶ Iniciar captura';
+    btn.classList.remove('recording');
+  }
+}
+
+function exportCapture() {
+  const data = hourlyData[captureFiat];
+  let csv = 'Fecha,Hora,Compra,Venta,Spread%,Cambio%\n';
+  data.forEach(r => {
+    csv += `${r.date},${r.time},${r.buy.toFixed(2)},${r.sell.toFixed(2)},${r.spread.toFixed(2)},${r.change.toFixed(2)}\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `captura_${captureFiat}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function clearCapture() {
+  hourlyData[captureFiat] = [];
+  renderCapture();
+}
+
+// ===== CHART =====
+function drawChart() {
+  const canvas = document.getElementById('price-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width*2; canvas.height = rect.height*2;
+  ctx.scale(2,2);
+  const W=rect.width, H=rect.height;
+
+  const basePrice = PRICE_DATA.VES.Binance.buy;
+  const points = [];
+  for (let i=0;i<168;i++) {
+    const trend = Math.sin(i/40)*basePrice*0.012;
+    const noise = (Math.random()-0.5)*basePrice*0.008;
+    points.push(basePrice + trend + noise + i*basePrice*0.0003);
+  }
+
+  const minP = Math.min(...points)-basePrice*0.01;
+  const maxP = Math.max(...points)+basePrice*0.01;
+  const pad = {top:10,right:10,bottom:25,left:50};
+  const pW = W-pad.left-pad.right, pH = H-pad.top-pad.bottom;
+
+  ctx.strokeStyle='rgba(48,54,61,0.5)'; ctx.lineWidth=0.5;
+  for (let i=0;i<=5;i++) {
+    const y = pad.top+(pH/5)*i;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(W-pad.right,y); ctx.stroke();
+    const val = maxP-((maxP-minP)/5)*i;
+    ctx.fillStyle='#8B949E'; ctx.font='9px Inter,sans-serif'; ctx.textAlign='right';
+    ctx.fillText(fmtPrice(val),pad.left-5,y+3);
+  }
+  const days=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  for (let i=0;i<7;i++) {
+    const x=pad.left+(pW/6)*i;
+    ctx.fillStyle='#8B949E'; ctx.font='9px Inter,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(days[i],x,H-5);
+  }
+
+  const grad=ctx.createLinearGradient(0,pad.top,0,H-pad.bottom);
+  grad.addColorStop(0,'rgba(255,82,82,0.2)'); grad.addColorStop(1,'rgba(255,82,82,0)');
+  ctx.beginPath(); ctx.moveTo(pad.left,H-pad.bottom);
+  points.forEach((p,i)=>{
+    const x=pad.left+(pW/(points.length-1))*i;
+    const y=pad.top+pH-((p-minP)/(maxP-minP))*pH;
+    ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pad.left+pW,H-pad.bottom); ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+
+  ctx.beginPath(); ctx.strokeStyle='#FF5252'; ctx.lineWidth=1.5; ctx.lineJoin='round';
+  points.forEach((p,i)=>{
+    const x=pad.left+(pW/(points.length-1))*i;
+    const y=pad.top+pH-((p-minP)/(maxP-minP))*pH;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+function renderHistStats() {
+  const base = PRICE_DATA.VES.Binance.buy;
+  const minP = (base*0.97).toFixed(2);
+  const maxP = (base*1.03).toFixed(2);
+  const avgP = base.toFixed(2);
+  document.getElementById('hist-stats').innerHTML = `
+    <div class="stat-item"><div class="stat-value">${minP}</div><div class="stat-label">Mín</div></div>
+    <div class="stat-item"><div class="stat-value">${maxP}</div><div class="stat-label">Máx</div></div>
+    <div class="stat-item"><div class="stat-value">${avgP}</div><div class="stat-label">Prom</div></div>
+    <div class="stat-item"><div class="stat-value" style="color:#00E676">+2.83%</div><div class="stat-label">Cambio</div></div>
+  `;
+}
+
+// ===== SETTINGS FIATS =====
+function renderSettingsFiats() {
+  const active=['VES','ARS','COP','MXN'];
+  document.getElementById('settings-fiats').innerHTML = FIATS.map(f =>
+    `<button class="fiat-setting-chip ${active.includes(f)?'active':''}" onclick="this.classList.toggle('active')">${FIAT_FLAGS[f]} ${f}</button>`
+  ).join('');
+}
+
+// ===== HELPERS =====
+function setTimeRange(btn) {
+  document.querySelectorAll('.time-chip').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active'); drawChart();
+}
+function refreshData() {
+  Object.keys(PRICE_DATA).forEach(fiat => {
+    Object.keys(PRICE_DATA[fiat]).forEach(ex => {
+      const d=PRICE_DATA[fiat][ex];
+      d.buy*=(1+(Math.random()-0.5)*0.003);
+      d.sell*=(1+(Math.random()-0.5)*0.003);
+    });
+  });
+  // Add new capture point
+  if (isCapturing) {
+    FIATS.forEach(f => {
+      const d = hourlyData[f];
+      if (d.length>0) {
+        const last = d[d.length-1];
+        const now = new Date();
+        const newBuy = PRICE_DATA[f].Binance.buy*(1+(Math.random()-0.5)*0.005);
+        const newSell = PRICE_DATA[f].Binance.sell*(1+(Math.random()-0.5)*0.005);
+        d.push({
+          time: now.getHours().toString().padStart(2,'0')+':00',
+          date: now.toLocaleDateString('es',{day:'2-digit',month:'short'}),
+          buy: newBuy, sell: newSell,
+          change: ((newBuy-last.buy)/last.buy*100),
+          spread: ((newSell-newBuy)/newBuy*100),
+        });
+      }
+    });
+  }
+  renderPrices(); renderArbitrage(); renderCapture(); updateTime();
+}
+function updateTime() {
+  document.getElementById('last-updated').textContent = 'Última actualización: '+new Date().toTimeString().slice(0,8);
+}
+function toggleTheme() {
+  const icon = document.getElementById('theme-icon');
+  icon.innerHTML = icon.innerHTML.includes('M21') ?
+    '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>' :
+    '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+}
+
+// Auto-refresh every 15s
+setInterval(refreshData, 15000);
+
+init();
+</script>
+</body>
+</html>

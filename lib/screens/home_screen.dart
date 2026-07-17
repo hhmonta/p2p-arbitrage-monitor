@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../services/hourly_capture_service.dart';
 import '../utils/constants.dart';
 import 'prices_screen.dart';
 import 'arbitrage_screen.dart';
+import 'capture_screen.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 
@@ -31,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final List<Widget> _screens = [
     const PricesScreen(),
     const ArbitrageScreen(),
+    const CaptureScreen(),
     const HistoryScreen(),
     const SettingsScreen(),
   ];
@@ -46,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
+    HourlyCaptureService.instance.stop();
     super.dispose();
   }
 
@@ -54,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final apiService = context.read<ApiService>();
     await apiService.loadPreferences();
     await apiService.fetchAllPrices();
+    HourlyCaptureService.instance.start(apiService);
     _startAutoRefresh();
   }
 
@@ -152,6 +157,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             icon: Icon(Icons.swap_horiz),
             selectedIcon: Icon(Icons.swap_horiz),
             label: 'Arbitraje',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.schedule),
+            selectedIcon: Icon(Icons.schedule),
+            label: 'Captura',
           ),
           NavigationDestination(
             icon: Icon(Icons.timeline),
